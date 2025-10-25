@@ -8,7 +8,7 @@
     :root{
       --bg:#f6f8fb;--card:#fff;--text:#111827;--muted:#6b7280;--border:#e5e7eb;
       --p2:#e0f2fe;--p3:#dcfce7;--p4:#fef3c7;--p5:#fae8ff;--libre:#f3f4f6;
-      --green:#16a34a;--green-dark:#065f46;--red:#ef4444;--amber:#f59e0b;
+      --green:#16a34a;--green-dark:#065f46;--red:#ef4444;--amber:#f59e0b;--blue:#2563eb;
     }
     *{box-sizing:border-box}
     html,body{height:100%}
@@ -18,7 +18,7 @@
     .btn{border:0;border-radius:12px;padding:10px 16px;cursor:pointer;font-weight:700}
     .btn-green{background:var(--green);color:#fff}
     .btn-green-dark{background:var(--green-dark);color:#fff}
-    .btn-blue{background:#2563eb;color:#fff}
+    .btn-blue{background:var(--blue);color:#fff}
     .btn-gray{background:#e5e7eb}
     .btn-red{background:var(--red);color:#fff}
     .btn-amber{background:var(--amber);color:#111}
@@ -144,7 +144,10 @@
 
       <div class="nav">
         <button class="btn btn-gray" id="observeBack">⬅️ Configuration</button>
-        <button class="btn btn-green" id="observeNext">Évaluations ➡️</button>
+        <div class="row">
+          <button class="btn btn-amber" id="btnMarkDone">💾 Enregistrer l’observation</button>
+          <button class="btn btn-green" id="observeNext">Évaluations ➡️</button>
+        </div>
       </div>
     </section>
 
@@ -182,9 +185,8 @@
         <div class="row">
           <button class="btn btn-blue" id="btnShowList">📂 Enchaînements</button>
           <button class="btn btn-amber" id="btnNewObservation">➕ Nouvelle observation</button>
-          <!-- Export PDF unique et Sauvegarde JSON (par équipe d’observateurs) -->
+          <!-- Un seul export PDF (par équipe d’observateurs) -->
           <button class="btn btn-green-dark" id="btnExportByObservers">📄 Exporter en PDF</button>
-          <button class="btn btn-green" id="btnSaveTeamJSON">💾 Enregistrer les observations</button>
         </div>
       </div>
     </section>
@@ -209,13 +211,14 @@
           <li>Ajoute les <b>observateurs</b> (séparés par virgule, point-virgule ou retour à la ligne).</li>
           <li>Ajoute le <b>groupe observé</b> (prénoms) : pour l’évaluation individuelle.</li>
           <li>Renseigne le <b>plan d’enchaînement</b> : nombre de pyramides à 2 / 3 / 4 / 5 / libres.</li>
-          <li>Appuie sur <b>Démarrer l’observation</b> pour créer l’enchaînement et passer à l’observation.</li>
+          <li>Appuie sur <b>Démarrer l’observation</b> puis complète <b>Observation</b> → <b>Évaluations</b>.</li>
         </ul>
       </div>
       <div class="card">
         <div class="title">2) Observation</div>
         <ul>
           <li>Pour chaque pyramide : <b>Tenue 3s</b> (OUI/NON) et <b>Sécurité</b> par critère (🔴/🟡/🟢/🟩).</li>
+          <li>Appuie sur <b>💾 Enregistrer l’observation</b> pour marquer la fiche comme <b>terminée</b> (sans téléchargement).</li>
         </ul>
       </div>
       <div class="card">
@@ -224,7 +227,7 @@
           <li><b>Évaluation de l’ensemble</b> : F/M/B/TB pour Composition, Entrée, Sortie, Originalité.</li>
           <li><b>Évaluation individuelle</b> : notes /20 (demi-points possibles), champs vides par défaut.</li>
           <li><b>Nouvelle observation</b> : remet le <b>groupe</b> et le <b>plan</b> à zéro, retour “Configuration”.</li>
-          <li>À la fin, appuie sur <b>📄 Exporter en PDF</b> (un seul document, au nom des observateurs) ou <b>💾 Enregistrer les observations</b> pour sauvegarder le fichier de données (.json) de l’équipe.</li>
+          <li>À la fin, appuie sur <b>📄 Exporter en PDF</b> : un <b>seul document</b> au <b>nom des observateurs</b> avec <b>toutes</b> les observations de l’équipe.</li>
         </ul>
       </div>
       <div class="card">
@@ -251,7 +254,7 @@
 
 <script>
 /* ===== PERSISTENCE ===== */
-const STORAGE_KEY = "acrojuge_state_ui_v8_team_save";
+const STORAGE_KEY = "acrojuge_state_ui_v9_done_flag";
 function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(app)); }
 function load(){ try{ const raw=localStorage.getItem(STORAGE_KEY); if(raw) Object.assign(app, JSON.parse(raw)); }catch{} }
 function hardReset(){
@@ -267,7 +270,7 @@ function freshApp(){
     observers: [],
     group: [],
     counts: {p2:0,p3:0,p4:0,p5:0,libre:0},
-    evals: [],              // [{id,date,observerList,groupeList,pyramides[],ensemble:{},noteFinale,commentaire,eleves[]}]
+    evals: [],              // [{id,date,observerList,groupeList,pyramides[],ensemble:{},noteFinale,commentaire,eleves[],completed}]
     selectedId: null
   };
 }
@@ -316,9 +319,11 @@ document.addEventListener("DOMContentLoaded", ()=>{
     addObservation(true);
   };
 
-  // Export PDF unique (par observateurs) + Sauvegarde JSON
+  // Marquer la fiche terminée (pas de téléchargement)
+  $("btnMarkDone").onclick = markObservationDone;
+
+  // Export PDF unique (par observateurs)
   $("btnExportByObservers").onclick = exportByObserversPDF;
-  $("btnSaveTeamJSON").onclick      = saveTeamJSON;
 
   // Chips (observers / group)
   const obsInput=$("obsInput"), grpInput=$("grpInput");
@@ -335,6 +340,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
   // Chargement + migration
   load();
   migrateObserverLists();
+  migrateCompleted();
   save();
 
   renderAll(); show("cover");
@@ -371,15 +377,9 @@ function addNames(field, raw){
 }
 function syncEleves(prev, names){ const by=new Map((prev||[]).map(e=>[e.name,e])); return (names||[]).map(n=> by.get(n) || { name:n, note:null }); }
 function makePyramide(t){ const sec=Object.fromEntries(DEFAULT_SECURITE.map(s=>[s,"moyen"])); return { id:uid(), type:t, securite:sec, tenue:"non" }; }
-function normalizeName(s=""){
-  return s.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim().replace(/\s+/g," ");
-}
-function teamKey(arr=[]){
-  return (arr||[]).map(normalizeName).filter(Boolean).sort().join("|");
-}
-function slugifyNames(arr){
-  return (arr||[]).map(n=>n.normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-zA-Z0-9]+/g,"_").replace(/^_|_$/g,"")).filter(Boolean).join("_")||"Observateurs";
-}
+function normalizeName(s=""){ return s.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim().replace(/\s+/g," "); }
+function teamKey(arr=[]){ return (arr||[]).map(normalizeName).filter(Boolean).sort().join("|"); }
+function slugifyNames(arr){ return (arr||[]).map(n=>n.normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-zA-Z0-9]+/g,"_").replace(/^_|_$/g,"")).filter(Boolean).join("_")||"Observateurs"; }
 function migrateObserverLists(){
   // Remplit les observerList vides avec la dernière équipe connue (ou équipe courante)
   let lastTeam = (app.observers || []).filter(Boolean);
@@ -388,6 +388,18 @@ function migrateObserverLists(){
       ev.observerList = (lastTeam && lastTeam.length) ? [...lastTeam] : [...(app.observers||[])];
     } else {
       lastTeam = [...ev.observerList];
+    }
+  });
+}
+function migrateCompleted(){
+  // Marque “completed” si la fiche contient des infos utiles
+  (app.evals || []).forEach(ev=>{
+    if (ev.completed === undefined){
+      const hasP = (ev.pyramides||[]).length>0;
+      const hasG = (ev.groupeList||[]).length>0;
+      const hasN = (ev.eleves||[]).some(x=>x.note!=null);
+      const hasF = ev.noteFinale!=null || (ev.commentaire||"").trim()!=="";
+      ev.completed = !!(hasP || hasG || hasN || hasF);
     }
   });
 }
@@ -412,7 +424,10 @@ function renderObserve(){
   const grpCard=document.createElement("div");
   grpCard.className="card";
   grpCard.innerHTML = `
-    <div class="title">👥 Groupe de l’observation</div>
+    <div class="bar">
+      <div class="title">👥 Groupe de l’observation</div>
+      ${ev.completed ? '<span class="muted">✅ Enregistrée</span>' : ''}
+    </div>
     <input type="text" id="grpEdit" placeholder="ex. Inès, Léo" />
     <div class="chips" id="grpEditChips"></div>
   `;
@@ -454,14 +469,14 @@ function renderObserve(){
       </div>`;
     // Tenue
     el.querySelectorAll("[data-tn]").forEach(btn=>{
-      btn.onclick = ()=>{ p.tenue = btn.getAttribute("data-tn"); renderObserve(); save(); };
+      btn.onclick = ()=>{ p.tenue = btn.getAttribute("data-tn"); ev.completed=false; renderObserve(); save(); };
     });
     // Sécurité F/M/B/TB
     el.querySelectorAll(".fmblist").forEach((rowEl,i)=>{
       rowEl.querySelectorAll("[data-fmb]").forEach(b=>{
         b.onclick = ()=>{
           const val=b.getAttribute("data-fmb"); const crit=DEFAULT_SECURITE[i];
-          p.securite[crit]=val; renderObserve(); save();
+          p.securite[crit]=val; ev.completed=false; renderObserve(); save();
         };
       });
     });
@@ -480,7 +495,10 @@ function renderEvals(){
   ENSEMBLE_CRITS.forEach((crit)=>{
     const card = document.createElement("div"); card.className="card";
     card.innerHTML = `
-      <div class="title" style="font-size:14px">${crit}</div>
+      <div class="bar">
+        <div class="title" style="font-size:14px">${crit}</div>
+        ${ev.completed ? '<span class="muted">✅ Enregistrée</span>' : ''}
+      </div>
       <div class="fmblist row">
         <button data-fmb="fragile" class="${ev.ensemble[crit]==='fragile'?'active':''}">🔴 Fragile</button>
         <button data-fmb="moyen"   class="${ev.ensemble[crit]==='moyen'  ?'active':''}">🟡 Moyen</button>
@@ -488,7 +506,7 @@ function renderEvals(){
         <button data-fmb="tb"      class="${ev.ensemble[crit]==='tb'     ?'active':''}">🟩 Très bon</button>
       </div>`;
     card.querySelectorAll("[data-fmb]").forEach(b=>{
-      b.onclick = ()=>{ ev.ensemble[crit] = b.getAttribute("data-fmb"); renderEvals(); save(); };
+      b.onclick = ()=>{ ev.ensemble[crit] = b.getAttribute("data-fmb"); ev.completed=false; renderEvals(); save(); };
     });
     cont.appendChild(card);
   });
@@ -505,7 +523,7 @@ function renderEvals(){
     item.querySelector(`[data-note="${idx}"]`).oninput = (e)=>{
       const v=e.target.value;
       const n = v===''? null : Math.min(20, Math.max(0, Math.round((Number(v)||0)*2)/2));
-      el.note = n; save();
+      el.note = n; ev.completed=false; save();
     };
     elevesList.appendChild(item);
   });
@@ -513,12 +531,12 @@ function renderEvals(){
   // Commentaire / note finale
   const commentaire=$("commentaire"), noteFinale=$("noteFinale");
   commentaire.value = ev.commentaire??"";
-  commentaire.oninput = (e)=>{ ev.commentaire=e.target.value; save(); };
+  commentaire.oninput = (e)=>{ ev.commentaire=e.target.value; ev.completed=false; save(); };
   noteFinale.value = ev.noteFinale ?? "";
   noteFinale.oninput = (e)=>{
     const v=e.target.value;
     const n = v===''? null : Math.min(20, Math.max(0, Math.round((Number(v)||0)*2)/2));
-    ev.noteFinale = n; save();
+    ev.noteFinale = n; ev.completed=false; save();
   };
 }
 
@@ -537,7 +555,7 @@ function renderListModal(){
     row.className = "list-row";
     row.innerHTML = `
       <div>
-        <div><b>${idx+1}.</b> Groupe: ${(ev.groupeList||[]).join(", ")||"(à compléter)"} </div>
+        <div><b>${idx+1}.</b> Groupe: ${(ev.groupeList||[]).join(", ")||"(à compléter)"} ${ev.completed? '— ✅':''}</div>
         <div class="muted">Obs: ${(ev.observerList||[]).join(", ")||"—"}</div>
         <div class="muted">P2:${cnt.p2} P3:${cnt.p3} P4:${cnt.p4} P5:${cnt.p5} L:${cnt.libre}</div>
       </div>
@@ -571,11 +589,22 @@ function addObservation(goToObserve){
     ensemble: Object.fromEntries(ENSEMBLE_CRITS.map(c=>[c,"moyen"])),
     noteFinale: null, commentaire:"",
     eleves: syncEleves([], app.group),
+    completed: false,
   };
   app.evals.unshift(ev);
   app.selectedId = ev.id;
   renderSetup(); renderObserve(); renderEvals(); save();
   if(goToObserve) show("observe");
+}
+
+function markObservationDone(){
+  const ev = app.evals.find(e=>e.id===app.selectedId);
+  if(!ev){ alert("Aucune observation en cours."); return; }
+  ev.completed = true;
+  save();
+  renderObserve(); renderEvals();
+  // Toast minimal
+  alert("Observation enregistrée (terminée). Tu peux passer à une nouvelle ou exporter en PDF.");
 }
 
 function newObservationFlow(){
@@ -585,40 +614,15 @@ function newObservationFlow(){
   show("setup");
 }
 
-/* ===== SAUVEGARDE JSON – PAR ÉQUIPE D’OBSERVATEURS ===== */
-function saveTeamJSON(){
-  const team = (app.observers || []).filter(Boolean);
-  if(!team.length){ alert("Renseigne d’abord les observateurs (page Configuration)."); return; }
-  const key = teamKey(team);
-  // Sélectionne toutes les observations de cette équipe
-  const selection = (app.evals || []).filter(e => teamKey(e.observerList || []) === key);
-  if(!selection.length){ alert("Aucune observation pour cette équipe d’observateurs."); return; }
-
-  const payload = {
-    exportedAt: new Date().toISOString(),
-    observers: [...team],
-    observations: selection
-  };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-  const filename = `AcroJuge_${slugifyNames(team)}_data_${new Date().toISOString().slice(0,10)}.json`;
-  triggerDownload(blob, filename);
-}
-
-function triggerDownload(blob, filename){
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.setAttribute("download", filename);
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(url); }, 0);
-}
-
 /* ===== EXPORT PDF UNIQUE – PAR OBSERVATEURS ===== */
 function exportByObserversPDF(){
   const team = (app.observers || []).filter(Boolean);
   if(!team.length){ alert("Renseigne d’abord les observateurs (page Configuration)."); return; }
   renderPDF({ mode:"byObservers", team });
+}
+
+function normalizeTeamForFile(a=[]){
+  return (a||[]).join("_").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9_]+/gi,"_");
 }
 
 function renderPDF({mode, team=[]}){
@@ -637,10 +641,9 @@ function renderPDF({mode, team=[]}){
   const levelText = (lv)=> ({fragile:"Fragile",moyen:"Moyen",bon:"Bon",tb:"Très bon"})[lv]||lv;
   const DOT = { fragile:"🔴", moyen:"🟡", bon:"🟢", tb:"🟩" };
 
-  // Sélection des observations : uniquement cette équipe (clé normalisée)
-  let selection = (app.evals || []);
-  const wantedKey = teamKey(team);
-  selection = selection.filter(e => teamKey(e.observerList || []) === wantedKey);
+  // Filtre: équipe exacte (clé normalisée), on exporte TOUTES leurs fiches (terminées ou non), mais l’état “terminée” est affiché
+  const key = teamKey(team);
+  const selection = (app.evals || []).filter(e => teamKey(e.observerList || []) === key);
 
   if(!selection.length){
     alert("Aucune observation trouvée pour cette équipe d’observateurs.\nVérifie les noms saisis (page Configuration).");
@@ -648,7 +651,7 @@ function renderPDF({mode, team=[]}){
   }
 
   const headerTitle = "Dossier d’observation — Observateurs: " + (team.join(", ") || "Observateurs");
-  const fileName    = `AcroJuge_${slugifyNames(team)}_${new Date().toISOString().slice(0,10)}.pdf`;
+  const fileName    = `AcroJuge_${normalizeTeamForFile(team)}_${new Date().toISOString().slice(0,10)}.pdf`;
 
   // En-tête
   doc.setFontSize(20); doc.text(headerTitle, left, y); nl(20);
@@ -659,7 +662,8 @@ function renderPDF({mode, team=[]}){
   selection.forEach((e, i)=>{
     ensure(60);
     doc.setFont(undefined,"bold");
-    doc.text(`${i+1}. Groupe observé: ${(e.groupeList||[]).join(", ") || "(à compléter)"}`, left, y); nl();
+    const doneTxt = e.completed ? " — ✅ Enregistrée" : "";
+    doc.text(`${i+1}. Groupe observé: ${(e.groupeList||[]).join(", ") || "(à compléter)"}${doneTxt}`, left, y); nl();
     doc.setFont(undefined,"normal");
     const obsLine = (e.observerList||[]).join(", ");
     if(obsLine) { doc.text(`Observateurs (fiche): ${obsLine}`, left, y); nl(6); }
