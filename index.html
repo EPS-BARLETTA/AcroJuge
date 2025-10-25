@@ -6,9 +6,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     :root{
-      --bg:#f4f6fb;--card:#fff;--text:#111827;--muted:#6b7280;
-      --border:#e5e7eb;
+      --bg:#f4f6fb;--card:#fff;--text:#111827;--muted:#6b7280;--border:#e5e7eb;
       --p2:#e0f2fe;--p3:#dcfce7;--p4:#fef3c7;--p5:#fae8ff;--libre:#f3f4f6;
+      --ok:#16a34a;--warn:#f59e0b;--bad:#ef4444;
     }
     *{box-sizing:border-box}
     html,body{height:100%}
@@ -16,7 +16,6 @@
     .app{min-height:100dvh;display:flex;flex-direction:column}
     .header{position:sticky;top:0;background:#fff;border-bottom:1px solid var(--border);padding:8px 16px;display:flex;gap:8px;align-items:center;justify-content:flex-end;z-index:10}
     .btn{border:0;border-radius:12px;padding:10px 16px;cursor:pointer;font-weight:700}
-    .btn:disabled{opacity:.5;cursor:not-allowed}
     .btn-green{background:#16a34a;color:#fff}
     .btn-blue{background:#2563eb;color:#fff}
     .btn-gray{background:#e5e7eb}
@@ -36,7 +35,6 @@
     .title{font-weight:700;margin-bottom:8px}
     .muted{color:var(--muted);font-size:12px}
     input[type="text"],input[type="number"],textarea{width:100%;border:1px solid var(--border);border-radius:12px;padding:10px;font-size:14px;background:#fff}
-    textarea{min-height:84px;resize:vertical}
     .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
     .chip{background:#f3f4f6;border-radius:999px;padding:6px 10px;font-size:13px;display:inline-flex;gap:8px;align-items:center}
     .chip button{border:0;background:transparent;cursor:pointer;color:#6b7280}
@@ -48,8 +46,8 @@
     .seg{border:1px dashed var(--border);padding:8px;border-radius:12px;margin-top:8px;background:#fff}
     .fmblist button{border:0;border-radius:10px;padding:8px 10px;background:#e5e7eb;cursor:pointer}
     .fmblist button.active{outline:2px solid #111;outline-offset:2px;background:#fff}
-    .footer{border-top:1px solid var(--border);background:#fff;padding:10px 16px;text-align:center;color:#6b7280;font-size:12px}
     .nav{display:flex;justify-content:space-between;gap:10px;margin-top:12px}
+    .footer{border-top:1px solid var(--border);background:#fff;padding:10px 16px;text-align:center;color:#6b7280;font-size:12px}
     .hidden{display:none}
     @media print{
       .header,.nav,.no-print{display:none!important}
@@ -65,7 +63,7 @@
 <div class="app">
   <!-- Actions globales -->
   <header class="header">
-    <button class="btn btn-blue" id="btnExportPDF" title="PDF">📄 PDF</button>
+    <button class="btn btn-blue" id="btnExportPDF" title="Exporter tout (PDF)">📄 Exporter TOUT (PDF)</button>
     <button class="btn btn-red" id="btnHardReset" title="Tout réinitialiser">♻️ Reset</button>
   </header>
 
@@ -106,7 +104,7 @@
       <div class="card" style="margin-top:12px">
         <div class="bar">
           <div class="title">🗓️ Plan d’enchaînement (prochaine composition)</div>
-          <div class="muted">Compositions : <span id="compoCount">0</span></div>
+          <div class="muted">Observations créées : <span id="compoCount">0</span></div>
         </div>
         <div class="grid" style="grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-top:8px">
           <div class="card p2"><label class="muted">Pyramide à 2 ×</label><input type="number" min="0" id="count-p2" value="0"></div>
@@ -131,21 +129,24 @@
 
       <div class="card">
         <div class="bar">
-          <div class="title">🎯 Sélection de composition</div>
+          <div class="title">🎯 Observations (sélection)</div>
           <div class="muted">Total : <span id="badgeTotal"></span></div>
         </div>
         <div id="compoButtons" class="row" style="margin-top:8px"></div>
+        <div class="row" style="margin-top:8px">
+          <button class="btn btn-green" id="btnAddAnother">➕ Ajouter une observation</button>
+        </div>
       </div>
 
       <div id="observeContent" class="card" style="margin-top:12px"></div>
 
       <div class="nav">
         <button class="btn btn-gray" id="observeBack">⬅️ Configuration</button>
-        <button class="btn btn-green" id="observeNext">Évaluation d’ensemble ➡️</button>
+        <button class="btn btn-green" id="observeNext">Évaluations ➡️</button>
       </div>
     </section>
 
-    <!-- PAGE 4 : EVALUATIONS -->
+    <!-- PAGE 4 : EVALUATIONS (ensemble + individuel) -->
     <section id="page-evals" class="section hidden">
       <div class="pageTitle">
         <h1>Évaluations</h1>
@@ -153,7 +154,7 @@
       </div>
 
       <div class="card">
-        <div class="title">📝 Évaluation de l’ensemble (3 niveaux)</div>
+        <div class="title">📝 Évaluation de l’ensemble (mêmes codes F/M/B que la sécurité)</div>
         <div id="ensembleFMB" class="grid grid-2" style="margin-top:8px"></div>
       </div>
 
@@ -187,11 +188,33 @@
 </div>
 
 <script>
-/* ====== STATE ====== */
-const STORAGE_KEY = "acrojuge_state_ui_v2";
+/* ====== PERSISTENCE ====== */
+const STORAGE_KEY = "acrojuge_state_ui_v3"; // persiste sur iPad (localStorage)
+function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(app)); }
+function load(){ try{ const raw=localStorage.getItem(STORAGE_KEY); if(raw) Object.assign(app, JSON.parse(raw)); }catch{} }
+function hardReset(){
+  if(!confirm("Tout réinitialiser ? Cela efface toutes les observations enregistrées.")) return;
+  localStorage.removeItem(STORAGE_KEY);
+  Object.assign(app, freshApp());
+  renderAll(); show("cover"); save();
+}
+
+/* ====== APP STATE ====== */
+function freshApp(){
+  return {
+    observers: [],          // liste globale d’observateurs
+    group: [],              // groupe par défaut (sert à initialiser les élèves des nouvelles obs)
+    counts: {p2:0,p3:0,p4:0,p5:0,libre:0}, // plan gabarit
+    evals: [],              // liste d’observations (plusieurs groupes observés)
+    selectedId: null
+  };
+}
+const app = freshApp();
+
+/* ====== CONST UI ====== */
 const LABEL = { p2:"Pyramide à 2", p3:"Pyramide à 3", p4:"Pyramide à 4", p5:"Pyramide à 5", libre:"Pyramide libre" };
-const NEED = { p2:2, p3:3, p4:4, p5:5 };
-const COLORS = { p2:"p2", p3:"p3", p4:"p4", p5:"p5", libre:"libre" };
+const NEED  = { p2:2, p3:3, p4:4, p5:5 };
+const COLORS= { p2:"p2", p3:"p3", p4:"p4", p5:"p5", libre:"libre" };
 const DEFAULT_SECURITE = [
   "Rôles définis (porteurs / voltige)",
   "Prises sûres et alignements",
@@ -199,30 +222,43 @@ const DEFAULT_SECURITE = [
   "Tenue sans danger",
   "Descente sécurisée",
 ];
-const ENSEMBLE_CRITS = ["Composition","Entrée","Sortie","Originalité"]; // F/M/B comme la sécurité
+const ENSEMBLE_CRITS = ["Composition","Entrée","Sortie","Originalité"]; // F/M/B
 
-const app = {
-  observers: [], group: [],
-  counts: { p2:0,p3:0,p4:0,p5:0,libre:0 },
-  evals: [],           // [{id, date, observerList, groupeList, pyramides[], ensemble:{crit:'fragile|moyen|bon'}, noteFinale, commentaire, eleves[]}]
-  selectedId: null
-};
-function uid(){ return Math.random().toString(36).slice(2,10); }
-function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(app)); }
-function load(){ try{ const raw=localStorage.getItem(STORAGE_KEY); if(raw){ Object.assign(app, JSON.parse(raw)); } }catch{} }
-function hardReset(){
-  if(!confirm("Tout réinitialiser ? Cela efface toutes les évaluations enregistrées.")) return;
-  localStorage.removeItem(STORAGE_KEY);
-  app.observers=[]; app.group=[]; app.counts={p2:0,p3:0,p4:0,p5:0,libre:0}; app.evals=[]; app.selectedId=null;
-  renderSetup(); renderObserve(); renderEvals(); show("cover"); save();
-}
-
-/* ====== MINI DOM ====== */
+/* ====== DOM ====== */
 const $ = (id)=> document.getElementById(id);
-const pages = { cover:$("page-cover"), setup:$("page-setup"), observe:$("page-observe"), evals:$("page-evals") };
-function show(which){ for(const k in pages) pages[k].classList.add("hidden"); pages[which].classList.remove("hidden"); }
+document.addEventListener("DOMContentLoaded", ()=>{
+  $("goSetup").onclick   = ()=> show("setup");
+  $("observeBack").onclick = ()=> show("setup");
+  $("observeNext").onclick = ()=> show("evals");
+  $("evalsBack").onclick   = ()=> show("observe");
+
+  $("btnHardReset").onclick    = hardReset;
+  $("btnResetCounts").onclick  = ()=>{ app.counts={p2:0,p3:0,p4:0,p5:0,libre:0}; renderSetup(); save(); };
+  $("btnStartObserve").onclick = ()=> addObservation(true);
+  $("btnAddAnother").onclick   = ()=> addObservation(false); // ajoute une obs supplémentaire, reste sur la page Observation
+
+  $("btnExportPDF").onclick    = exportPDF;
+
+  // chips observers / group
+  const obsInput=$("obsInput"), grpInput=$("grpInput");
+  obsInput.addEventListener("keydown",(e)=>{ if(["Enter",",",";"].includes(e.key)){ e.preventDefault(); addNames("observers", obsInput.value); obsInput.value=""; }});
+  obsInput.addEventListener("paste",(e)=>{ const t=e.clipboardData?.getData("text")||""; if(/[,\n;]/.test(t)){ e.preventDefault(); addNames("observers", t); }});
+  grpInput.addEventListener("keydown",(e)=>{ if(["Enter",",",";"].includes(e.key)){ e.preventDefault(); addNames("group", grpInput.value); grpInput.value=""; }});
+  grpInput.addEventListener("paste",(e)=>{ const t=e.clipboardData?.getData("text")||""; if(/[,\n;]/.test(t)){ e.preventDefault(); addNames("group", t); }});
+
+  // counters
+  ["p2","p3","p4","p5","libre"].forEach(k=>{
+    $("count-"+k).addEventListener("input",(e)=>{ app.counts[k] = Math.max(0, Number(e.target.value)||0); save(); });
+  });
+
+  load(); renderAll(); show("cover");
+});
+
+function show(which){ ["page-cover","page-setup","page-observe","page-evals"].forEach(id=>$(id).classList.add("hidden")); $(which==="cover"?"page-cover":which==="setup"?"page-setup":which==="observe"?"page-observe":"page-evals").classList.remove("hidden"); }
+function renderAll(){ renderSetup(); renderObserve(); renderEvals(); }
 
 /* ====== HELPERS ====== */
+function uid(){ return Math.random().toString(36).slice(2,10); }
 function toChips(container, arr, onRemove){
   container.innerHTML = "";
   arr.forEach((name, i)=>{
@@ -237,54 +273,22 @@ function toChips(container, arr, onRemove){
   });
 }
 function splitNames(text){ return text.replace(/\r\n?/g,"\n").split(/[ ,;\n]+/).map(s=>s.trim()).filter(Boolean); }
-function syncEleves(prev, names){ const by=new Map((prev||[]).map(e=>[e.name,e])); return (names||[]).map(n=> by.get(n) || { name:n, note:0 }); }
-function makePyramide(t){ const sec=Object.fromEntries(DEFAULT_SECURITE.map(s=>[s,"fragile"])); return { id:uid(), type:t, securite:sec, tenue:"non" }; }
-
-/* ====== BIND ====== */
-document.addEventListener("DOMContentLoaded", ()=>{
-  $("goSetup").addEventListener("click", ()=> show("setup"));
-  $("observeBack").addEventListener("click", ()=> show("setup"));
-  $("observeNext").addEventListener("click", ()=> show("evals"));
-  $("evalsBack").addEventListener("click", ()=> show("observe"));
-
-  $("btnHardReset").addEventListener("click", hardReset);
-  $("btnResetCounts").addEventListener("click", ()=>{ app.counts={p2:0,p3:0,p4:0,p5:0,libre:0}; renderSetup(); save(); });
-  $("btnStartObserve").addEventListener("click", ()=> addComposition(true));
-
-  $("btnExportPDF").addEventListener("click", exportPDF);
-
-  // chips
-  const obsInput=$("obsInput"), obsChips=$("obsChips");
-  const grpInput=$("grpInput"), grpChips=$("grpChips");
-  obsInput.addEventListener("keydown",(e)=>{ if(["Enter",",",";"].includes(e.key)){ e.preventDefault(); addNames("observers", obsInput.value); obsInput.value=""; }});
-  obsInput.addEventListener("paste",(e)=>{ const t=e.clipboardData?.getData("text")||""; if(/[,\n;]/.test(t)){ e.preventDefault(); addNames("observers", t); }});
-  grpInput.addEventListener("keydown",(e)=>{ if(["Enter",",",";"].includes(e.key)){ e.preventDefault(); addNames("group", grpInput.value); grpInput.value=""; }});
-  grpInput.addEventListener("paste",(e)=>{ const t=e.clipboardData?.getData("text")||""; if(/[,\n;]/.test(t)){ e.preventDefault(); addNames("group", t); }});
-
-  // counters
-  ["p2","p3","p4","p5","libre"].forEach(k=>{
-    $("count-"+k).addEventListener("input",(e)=>{ app.counts[k] = Math.max(0, Number(e.target.value)||0); save(); });
-  });
-
-  // init
-  load(); renderSetup(); renderObserve(); renderEvals(); show("cover");
-});
-
 function addNames(field, raw){
   const names = splitNames(raw);
   if(field==="observers"){ app.observers = [...app.observers, ...names.filter(n=>!app.observers.includes(n))]; }
   else { app.group = [...app.group, ...names.filter(n=>!app.group.includes(n))]; }
   renderSetup(); save();
 }
+function syncEleves(prev, names){ const by=new Map((prev||[]).map(e=>[e.name,e])); return (names||[]).map(n=> by.get(n) || { name:n, note:0 }); }
+function makePyramide(t){ const sec=Object.fromEntries(DEFAULT_SECURITE.map(s=>[s,"moyen"])); return { id:uid(), type:t, securite:sec, tenue:"non" }; }
 
-/* ====== RENDER ====== */
+/* ====== RENDERS ====== */
 function renderSetup(){
   toChips($("obsChips"), app.observers, (i)=>{ app.observers.splice(i,1); renderSetup(); save(); });
   toChips($("grpChips"), app.group, (i)=>{ app.group.splice(i,1); renderSetup(); save(); });
   $("compoCount").textContent = app.evals.length;
   ["p2","p3","p4","p5","libre"].forEach(k=>{ $("count-"+k).value = app.counts[k]; });
 }
-
 function renderObserve(){
   const compoButtons=$("compoButtons"), observeContent=$("observeContent"), badgeTotal=$("badgeTotal");
   compoButtons.innerHTML = "";
@@ -294,20 +298,20 @@ function renderObserve(){
     const b = document.createElement("button");
     b.className = "btn " + (app.selectedId===ev.id? "btn-green":"btn-gray");
     b.textContent = `${idx+1}. P2:${cnt.p2} P3:${cnt.p3} P4:${cnt.p4} P5:${cnt.p5} L:${cnt.libre}`;
-    b.addEventListener("click", ()=>{ app.selectedId=ev.id; renderObserve(); save(); });
+    b.onclick = ()=>{ app.selectedId=ev.id; renderObserve(); save(); };
     compoButtons.appendChild(b);
   });
   badgeTotal.textContent = app.evals.length;
 
   observeContent.innerHTML = "";
   const ev = app.evals.find(e=>e.id===app.selectedId);
-  if(!ev){ observeContent.innerHTML = `<div class="muted">Démarre une observation pour créer la première composition.</div>`; return; }
+  if(!ev){ observeContent.innerHTML = `<div class="muted">Crée une observation puis sélectionne-la.</div>`; return; }
 
-  // Groupe editable
+  // Groupe éditable pour CETTE observation
   const grpCard=document.createElement("div");
   grpCard.className="card";
   grpCard.innerHTML = `
-    <div class="title">👥 Groupe (utilisé pour la note individuelle)</div>
+    <div class="title">👥 Groupe de l’observation</div>
     <input type="text" id="grpEdit" placeholder="ex. Inès, Léo" />
     <div class="chips" id="grpEditChips"></div>
   `;
@@ -318,7 +322,7 @@ function renderObserve(){
   grpEdit.addEventListener("keydown",(e)=>{ if(["Enter",",",";"].includes(e.key)){ e.preventDefault(); const names=splitNames(grpEdit.value); ev.groupeList=[...(ev.groupeList||[]), ...names.filter(n=>!(ev.groupeList||[]).includes(n))]; ev.eleves=syncEleves(ev.eleves, ev.groupeList); grpEdit.value=""; renderObserve(); save(); }});
   grpEdit.addEventListener("paste",(e)=>{ const t=e.clipboardData?.getData("text")||""; if(/[,\n;]/.test(t)){ e.preventDefault(); const names=splitNames(t); ev.groupeList=[...(ev.groupeList||[]), ...names.filter(n=>!(ev.groupeList||[]).includes(n))]; ev.eleves=syncEleves(ev.eleves, ev.groupeList); renderObserve(); save(); }});
 
-  // Cartes pyramides
+  // Pyramides (Tenue + Sécurité F/M/B)
   const wrap=document.createElement("div"); wrap.className="grid grid-2";
   ev.pyramides.forEach((p, idx)=>{
     const el=document.createElement("div"); el.className=`pyr ${COLORS[p.type]}`;
@@ -339,8 +343,8 @@ function renderObserve(){
               <div class="muted" style="margin-bottom:6px">${crit}</div>
               <div class="fmblist row">
                 <button data-fmb="fragile" class="${p.securite[crit]==='fragile'?'active':''}">🔴 Fragile</button>
-                <button data-fmb="moyen" class="${p.securite[crit]==='moyen'?'active':''}">🟡 Moyen</button>
-                <button data-fmb="bon" class="${p.securite[crit]==='bon'?'active':''}">🟢 Bon</button>
+                <button data-fmb="moyen"   class="${p.securite[crit]==='moyen'  ?'active':''}">🟡 Moyen</button>
+                <button data-fmb="bon"     class="${p.securite[crit]==='bon'    ?'active':''}">🟢 Bon</button>
               </div>
             </div>
           `).join("")}
@@ -348,57 +352,48 @@ function renderObserve(){
       </div>`;
     // Tenue
     el.querySelectorAll("[data-tn]").forEach(btn=>{
-      btn.addEventListener("click", ()=>{ p.tenue = btn.getAttribute("data-tn"); renderObserve(); save(); });
+      btn.onclick = ()=>{ p.tenue = btn.getAttribute("data-tn"); renderObserve(); save(); };
     });
-    // Sécurité F/M/B
+    // F/M/B
     el.querySelectorAll(".fmblist").forEach((rowEl,i)=>{
       rowEl.querySelectorAll("[data-fmb]").forEach(b=>{
-        b.addEventListener("click", ()=>{
+        b.onclick = ()=>{
           const val=b.getAttribute("data-fmb"); const crit=DEFAULT_SECURITE[i];
           p.securite[crit]=val; renderObserve(); save();
-        });
+        };
       });
     });
     wrap.appendChild(el);
   });
   observeContent.appendChild(wrap);
 }
-
 function renderEvals(){
   const ev = app.evals.find(e=>e.id===app.selectedId); if(!ev) return;
 
   // Ensemble (F/M/B)
-  const ensemble = $("ensembleFMB");
-  ensemble.innerHTML = "";
-  ENSEMBLE_CRITS.forEach((crit,i)=>{
-    const key = crit; // libellé direct en clé d'objet
-    if(!ev.ensemble) ev.ensemble = {};
-    if(!ev.ensemble[key]) ev.ensemble[key] = "moyen";
-    const card = document.createElement("div");
-    card.className = "card";
+  const cont=$("ensembleFMB");
+  cont.innerHTML="";
+  if(!ev.ensemble) ev.ensemble = Object.fromEntries(ENSEMBLE_CRITS.map(c=>[c,"moyen"]));
+  ENSEMBLE_CRITS.forEach((crit)=>{
+    const card = document.createElement("div"); card.className="card";
     card.innerHTML = `
       <div class="title" style="font-size:14px">${crit}</div>
-      <div class="fmblist row" data-crit="${key}">
-        <button data-fmb="fragile" class="${ev.ensemble[key]==='fragile'?'active':''}">🔴 Fragile</button>
-        <button data-fmb="moyen"   class="${ev.ensemble[key]==='moyen'  ?'active':''}">🟡 Moyen</button>
-        <button data-fmb="bon"     class="${ev.ensemble[key]==='bon'    ?'active':''}">🟢 Bon</button>
-      </div>
-    `;
+      <div class="fmblist row">
+        <button data-fmb="fragile" class="${ev.ensemble[crit]==='fragile'?'active':''}">🔴 Fragile</button>
+        <button data-fmb="moyen"   class="${ev.ensemble[crit]==='moyen'  ?'active':''}">🟡 Moyen</button>
+        <button data-fmb="bon"     class="${ev.ensemble[crit]==='bon'    ?'active':''}">🟢 Bon</button>
+      </div>`;
     card.querySelectorAll("[data-fmb]").forEach(b=>{
-      b.addEventListener("click", ()=>{
-        const v=b.getAttribute("data-fmb");
-        ev.ensemble[key]=v; renderEvals(); save();
-      });
+      b.onclick = ()=>{ ev.ensemble[crit] = b.getAttribute("data-fmb"); renderEvals(); save(); };
     });
-    ensemble.appendChild(card);
+    cont.appendChild(card);
   });
 
-  // Individuel — note /20 uniquement
+  // Individuel (note /20)
   const elevesList=$("elevesList");
-  elevesList.innerHTML = "";
+  elevesList.innerHTML="";
   (ev.eleves||[]).forEach((el, idx)=>{
-    const line = document.createElement("div");
-    line.className="card";
+    const line=document.createElement("div"); line.className="card";
     line.innerHTML = `
       <div class="bar"><div class="title" style="font-size:14px">${el.name}</div></div>
       <div class="row" style="margin-top:6px">
@@ -406,13 +401,12 @@ function renderEvals(){
           <label class="muted">Note /20</label>
           <input type="number" min="0" max="20" step="0.5" value="${Number(el.note||0).toFixed(1)}" data-note="${idx}" />
         </div>
-      </div>
-    `;
+      </div>`;
     line.querySelector(`[data-note="${idx}"]`).oninput = (e)=>{ el.note = clamp20(round05(Number(e.target.value)||0)); save(); };
     elevesList.appendChild(line);
   });
 
-  // Commentaire + Note finale
+  // Commentaire / note finale
   const commentaire=$("commentaire"), noteFinale=$("noteFinale");
   commentaire.value = ev.commentaire||"";
   commentaire.oninput = (e)=>{ ev.commentaire=e.target.value; save(); };
@@ -420,11 +414,14 @@ function renderEvals(){
   noteFinale.oninput = (e)=>{ ev.noteFinale = clamp20(round05(Number(e.target.value)||0)); save(); };
 }
 
+/* ====== ACTIONS ====== */
 function round05(n){ return Math.round(n*2)/2; }
 function clamp20(n){ return Math.min(20, Math.max(0, n)); }
+function uid(){ return Math.random().toString(36).slice(2,10); }
+function syncEleves(prev, names){ const by=new Map((prev||[]).map(e=>[e.name,e])); return (names||[]).map(n=> by.get(n) || { name:n, note:0 }); }
+function makePyramide(t){ const sec=Object.fromEntries(DEFAULT_SECURITE.map(s=>[s,"moyen"])); return { id:uid(), type:t, securite:sec, tenue:"non" }; }
 
-/* ====== ACTIONS ====== */
-function addComposition(goToObserve){
+function addObservation(goToObserve){
   const list = [
     ...Array.from({length:app.counts.p2},()=> "p2"),
     ...Array.from({length:app.counts.p3},()=> "p3"),
@@ -447,75 +444,92 @@ function addComposition(goToObserve){
   if(goToObserve) show("observe");
 }
 
-/* ====== EXPORT PDF ====== */
-function dateStamp(){ return new Date().toISOString().slice(0,10); }
+/* ====== EXPORT PDF (TOUT) ====== */
 function exportPDF(){
   const footer = "AcroJuge - Equipe EPS Lycée Vauban - LUXEMBOURG - JB";
+  const dot = { fragile:"🔴", moyen:"🟡", bon:"🟢" };
+
   if(window.__HAS_LOCAL_JSPDF__ && window.jspdf){
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({unit:"pt",format:"a4"});
-    let y=60; const maxW=535;
-    const nl=(dy=16)=>{ y+=dy; if(y>780){ doc.addPage(); y=60; } };
-    const dot = { fragile:"🔴", moyen:"🟡", bon:"🟢" };
+    let y=60; const left=40, right=555, maxW=right-left;
+    const nl=(dy=16)=>{ y+=dy; if(y>780){ addFooterAndPage(); } };
+    const addFooterAndPage=()=>{ // footer page courante puis nouvelle page
+      const p=doc.getCurrentPageInfo().pageNumber;
+      doc.setFontSize(9); doc.setTextColor(120);
+      doc.text(`${footer}  •  Page ${p}/${doc.getNumberOfPages()}  •  ${new Date().toLocaleDateString()}`, left, 820);
+      doc.setTextColor(0);
+      doc.addPage(); y=60;
+    };
 
-    doc.setFontSize(20); doc.text("AcroJuge — Export", 40, y); nl(20);
+    // Titre global
+    doc.setFontSize(20); doc.text("AcroJuge — Export de séance", left, y); nl(20);
     doc.setFontSize(11);
+    // Observateurs globaux
+    const obs = (app.observers||[]).join(", ") || "(observateurs non saisis)";
+    doc.text(`Observateurs: ${obs}`, left, y); nl();
 
-    (app.evals||[]).forEach((e,i)=>{
-      const observers=(e.observerList||[]).join(", ")||"(observateurs)";
-      const groupe=(e.groupeList||[]).join(", ")||"(groupe)";
-      doc.text(`${i+1}. Groupe: ${groupe}  —  Observateurs: ${observers}`,40,y); nl();
+    // Parcours de TOUTES les observations
+    (app.evals||[]).forEach((e, i)=>{
+      // Bandeau groupe
+      doc.setFontSize(13);
+      doc.text(`${i+1}. Groupe observé: ${(e.groupeList||[]).join(", ") || "(à compléter)"}`, left, y);
+      doc.setFontSize(11); nl();
 
       // Pyramides
       if((e.pyramides||[]).length){
-        doc.text("Pyramides de l'enchaînement:",40,y); nl();
-        (e.pyramides||[]).forEach((p,idx)=>{
-          const secArr = Object.entries(p.securite).map(([k,v])=>`${dot[v]} ${k}`);
-          doc.splitTextToSize(`${idx+1}. ${LABEL[p.type]} — Tenue: ${p.tenue.toUpperCase()}`, maxW)
-             .forEach(ln=>{ doc.text(ln,40,y); nl(14); });
-          doc.splitTextToSize(`   Sécurité: ${secArr.join(" • ")}`, maxW)
-             .forEach(ln=>{ doc.text(ln,40,y); nl(14); });
+        doc.text("Pyramides de l'enchaînement:", left, y); nl(10);
+        e.pyramides.forEach((p, idx)=>{
+          // Ligne titre pyramide
+          doc.setFont(undefined, "bold");
+          doc.text(`${idx+1}. ${LABEL[p.type]} — Tenue 3s: ${p.tenue.toUpperCase()}`, left, y); nl();
+          doc.setFont(undefined, "normal");
+          // Détail sécurité
+          const secLine = Object.entries(p.securite).map(([k,v])=>`${dot[v]} ${k}`).join("  •  ");
+          doc.splitTextToSize(secLine, maxW).forEach(ln=>{ doc.text(`   ${ln}`, left, y); nl(14); });
+          nl(2);
         });
-        nl(6);
+      } else {
+        doc.text("(Aucune pyramide)", left, y); nl();
       }
 
-      // Ensemble (F/M/B)
-      const ens = e.ensemble||{};
-      const line = ENSEMBLE_CRITS.map(c=>`${c}: ${dot[ens[c]||"moyen"]}`).join("   |   ");
-      doc.text(`Évaluation d’ensemble — ${line}`, 40, y); nl();
+      // Évaluation d'ensemble (F/M/B)
+      const ensLine = ENSEMBLE_CRITS.map(c=>`${c}: ${dot[(e.ensemble||{})[c]||"moyen"]}`).join("   |   ");
+      doc.text(`Évaluation d'ensemble — ${ensLine}`, left, y); nl();
 
-      // Note finale
-      doc.text(`Note finale /20: ${(e.noteFinale||0).toFixed(1).replace(".",",")}`,40,y); nl(8);
-
-      // Commentaire
+      // Note finale + commentaire
+      doc.text(`Note finale /20: ${(e.noteFinale||0).toFixed(1).replace(".",",")}`, left, y); nl();
       if(e.commentaire){
-        doc.splitTextToSize(`Commentaire: ${e.commentaire}`, maxW)
-           .forEach(ln=>{ doc.text(ln,40,y); nl(14); });
+        doc.splitTextToSize(`Commentaire: ${e.commentaire}`, maxW).forEach(ln=>{ doc.text(ln, left, y); nl(14); });
       }
-      nl(8);
+      nl(4);
 
-      // Individuel (notes)
+      // Individuel
       if((e.eleves||[]).length){
-        doc.setFontSize(12); doc.text("Évaluation individuelle (notes /20)",40,y); nl(); doc.setFontSize(11);
-        (e.eleves||[]).forEach(el=>{
-          doc.text(`• ${el.name}: ${(Number(el.note||0)).toFixed(1).replace(".",",")}/20`,40,y); nl();
+        doc.setFont(undefined,"bold"); doc.text("Évaluation individuelle (notes /20)", left, y); nl();
+        doc.setFont(undefined,"normal");
+        e.eleves.forEach(el=>{
+          doc.text(`• ${el.name}: ${(Number(el.note||0)).toFixed(1).replace(".",",")}/20`, left, y); nl();
         });
-        nl(10);
       }
+      nl(12);
 
-      if(y>760){ doc.addPage(); y=60; }
+      // Séparateur entre groupes
+      doc.setDrawColor(220); doc.line(left, y, right, y); doc.setDrawColor(0); nl(12);
+
+      if(y>760){ addFooterAndPage(); }
     });
 
-    // Pieds de page
-    const pages = doc.getNumberOfPages();
-    for(let i=1;i<=pages;i++){
+    // Pieds de page pour TOUTES les pages
+    const total = doc.getNumberOfPages();
+    for(let i=1;i<=total;i++){
       doc.setPage(i); doc.setFontSize(9); doc.setTextColor(120);
-      doc.text(`${footer}  •  Page ${i}/${pages}  •  ${new Date().toLocaleDateString()}`, 40, 820);
+      doc.text(`${footer}  •  Page ${i}/${total}  •  ${new Date().toLocaleDateString()}`, left, 820);
       doc.setTextColor(0);
     }
-    doc.save(`AcroJuge_${dateStamp()}.pdf`);
+    doc.save(`AcroJuge_${new Date().toISOString().slice(0,10)}.pdf`);
   } else {
-    window.print(); // fallback Imprimer → PDF (iPad/AirDrop)
+    window.print(); // fallback iPad → Imprimer en PDF (AirDrop)
   }
 }
 </script>
