@@ -12,7 +12,7 @@
       --border:#e5e7eb;
     }
     *{box-sizing:border-box} html,body{height:100%}
-    body{margin:0;background:var(--bg);color:var(--text);font-family: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif}
     .container{max-width:1100px;margin:0 auto;padding:16px}
     .header{position:sticky;top:0;background:#fff;border-bottom:1px solid var(--border);padding:10px 16px;display:flex;gap:12px;align-items:center;justify-content:space-between;z-index:10}
     .h-title{font-weight:700}
@@ -29,9 +29,7 @@
     .card{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:14px}
     .title{font-weight:600;margin-bottom:8px}
     .muted{color:var(--muted);font-size:12px}
-    input[type="text"],input[type="number"],textarea,select{
-      width:100%;border:1px solid var(--border);border-radius:12px;padding:10px;font-size:14px;background:#fff;
-    }
+    input[type="text"],input[type="number"],textarea,select{width:100%;border:1px solid var(--border);border-radius:12px;padding:10px;font-size:14px;background:#fff}
     textarea{min-height:84px;resize:vertical}
     .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
     .chip{background:#f3f4f6;border-radius:999px;padding:6px 10px;font-size:13px;display:inline-flex;gap:8px;align-items:center}
@@ -39,36 +37,22 @@
     .grid{display:grid;gap:10px}
     .grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}
     .grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}
-    .grid-4{grid-template-columns:repeat(4,minmax(0,1fr))}
     .rangeRow{display:flex;align-items:center;gap:10px}
     .rangeRow input[type="range"]{flex:1}
     .pill{padding:6px 10px;border-radius:999px;background:#f3f4f6;font-size:12px}
     .bar{display:flex;justify-content:space-between;align-items:center;gap:10px}
     .pyr{border:1px solid var(--border);border-radius:16px;padding:12px}
-    .p2{background:var(--p2)}
-    .p3{background:var(--p3)}
-    .p4{background:var(--p4)}
-    .p5{background:var(--p5)}
-    .libre{background:var(--libre)}
+    .p2{background:var(--p2)} .p3{background:var(--p3)} .p4{background:var(--p4)} .p5{background:var(--p5)} .libre{background:var(--libre)}
     .seg{border:1px dashed var(--border);padding:8px;border-radius:12px;margin-top:8px;background:#fff}
     .fmblist button{border:0;border-radius:10px;padding:8px 10px;background:#e5e7eb;cursor:pointer}
     .fmblist button.active{outline:2px solid var(--ring);outline-offset:2px;background:#fff}
-    .footerNote{margin-top:6px;font-size:12px;color:var(--muted)}
     .footer-pdf{position:fixed;bottom:8px;left:16px;right:16px;text-align:center;color:#6b7280;font-size:12px}
     .nav{display:flex;justify-content:space-between;gap:10px;margin-top:10px}
     .hidden{display:none}
-    /* Print styles (fallback) */
-    @media print{
-      .header,.nav,.no-print{display:none!important}
-      body{background:#fff}
-      .card{break-inside:avoid}
-      .footer-pdf{display:block!important;position:fixed;bottom:12px}
-    }
+    @media print{ .header,.nav,.no-print{display:none!important} body{background:#fff} .card{break-inside:avoid} .footer-pdf{display:block!important;position:fixed;bottom:12px} }
   </style>
-  <!-- OPTIONNEL : jsPDF local (sans CDN). Si présent, l'app utilisera l'export PDF fichier. -->
-  <script>
-    window.__HAS_LOCAL_JSPDF__ = false;
-  </script>
+  <!-- jsPDF local (aucun CDN). S'il est présent, on l'utilise ; sinon fallback impression. -->
+  <script>window.__HAS_LOCAL_JSPDF__=false;</script>
   <script src="libs/jspdf.umd.min.js" onload="window.__HAS_LOCAL_JSPDF__=true" defer></script>
 </head>
 <body>
@@ -81,6 +65,7 @@
       <button class="btn btn-blue" id="btnExportPDF">📄 Export PDF</button>
       <button class="btn btn-purple" id="btnExportJSON">💾 Export JSON</button>
       <button class="btn btn-yellow" id="btnExportCSV">⬇️ Export CSV</button>
+      <button class="btn btn-danger" id="btnHardReset">♻️ Tout réinitialiser</button>
     </div>
   </header>
 
@@ -103,7 +88,7 @@
           <div>
             <input type="text" id="obsInput" placeholder="ex. Ambre, Léo" />
             <div class="chips" id="obsChips"></div>
-            <div class="footerNote">Entrée rapide : coller une liste (séparée par virgule, point-virgule ou retour à la ligne).</div>
+            <div class="muted">Entrée rapide : coller une liste (virgule / point-virgule / retour ligne).</div>
           </div>
         </div>
         <div class="col card">
@@ -111,7 +96,7 @@
           <div>
             <input type="text" id="grpInput" placeholder="ex. Inès, Léo" />
             <div class="chips" id="grpChips"></div>
-            <div class="footerNote">Ces prénoms serviront pour l’évaluation individuelle.</div>
+            <div class="muted">Ces prénoms serviront pour l’évaluation individuelle.</div>
           </div>
         </div>
       </div>
@@ -121,27 +106,12 @@
           <div class="title">🗓️ Plan d’enchaînement</div>
           <div class="muted">Compositions : <span id="compoCount">0</span></div>
         </div>
-        <div class="grid grid-5" style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-top:8px">
-          <div class="card p2">
-            <label class="muted">Pyramide à 2 ×</label>
-            <input type="number" min="0" id="count-p2" value="0">
-          </div>
-          <div class="card p3">
-            <label class="muted">Pyramide à 3 ×</label>
-            <input type="number" min="0" id="count-p3" value="0">
-          </div>
-          <div class="card p4">
-            <label class="muted">Pyramide à 4 ×</label>
-            <input type="number" min="0" id="count-p4" value="0">
-          </div>
-          <div class="card p5">
-            <label class="muted">Pyramide à 5 ×</label>
-            <input type="number" min="0" id="count-p5" value="0">
-          </div>
-          <div class="card libre">
-            <label class="muted">Pyramide libre ×</label>
-            <input type="number" min="0" id="count-libre" value="0">
-          </div>
+        <div class="grid" style="grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-top:8px">
+          <div class="card p2"><label class="muted">Pyramide à 2 ×</label><input type="number" min="0" id="count-p2" value="0"></div>
+          <div class="card p3"><label class="muted">Pyramide à 3 ×</label><input type="number" min="0" id="count-p3" value="0"></div>
+          <div class="card p4"><label class="muted">Pyramide à 4 ×</label><input type="number" min="0" id="count-p4" value="0"></div>
+          <div class="card p5"><label class="muted">Pyramide à 5 ×</label><input type="number" min="0" id="count-p5" value="0"></div>
+          <div class="card libre"><label class="muted">Pyramide libre ×</label><input type="number" min="0" id="count-libre" value="0"></div>
         </div>
         <div class="row" style="margin-top:8px">
           <button class="btn btn-blue" id="btnAddCompo">➕ Ajouter la composition</button>
@@ -188,7 +158,8 @@
         </div>
         <div class="col card">
           <div class="title">🏁 Note finale /20</div>
-          <input type="number" id="noteFinale" min="0" max="20" value="0" />
+          <input type="number" id="noteFinale" min="0" max="20" step="0.5" value="0" />
+          <div class="muted" style="margin-top:6px">Demi-points autorisés.</div>
         </div>
       </div>
 
@@ -209,10 +180,10 @@
   </main>
 
 <script>
-/** =======================
- *  STATE & HELPERS
- *  ======================= */
-const STORAGE_KEY = "acrojuge_state_v1";
+/* ========================
+   STATE & HELPERS
+   ======================== */
+const STORAGE_KEY = "acrojuge_state_v2";
 const DOT = { fragile:"🔴", moyen:"🟡", bon:"🟢" };
 const LABEL = { p2:"Pyramide à 2", p3:"Pyramide à 3", p4:"Pyramide à 4", p5:"Pyramide à 5", libre:"Pyramide libre" };
 const NEED = { p2:2, p3:3, p4:4, p5:5 };
@@ -225,22 +196,15 @@ const DEFAULT_SECURITE = [
   "Descente sécurisée",
 ];
 
-const app = {
-  observers: [],
-  group: [],
-  counts: { p2:0, p3:0, p4:0, p5:0, libre:0 },
-  evals: [],
-  selectedId: null,
-};
-
+const app = { observers:[], group:[], counts:{p2:0,p3:0,p4:0,p5:0,libre:0}, evals:[], selectedId:null };
 function uid(){ return Math.random().toString(36).slice(2,10); }
-
 function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(app)); }
-function load(){
-  try{
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if(raw){ const p = JSON.parse(raw); Object.assign(app, p); }
-  }catch{}
+function load(){ try{ const raw=localStorage.getItem(STORAGE_KEY); if(raw){ Object.assign(app, JSON.parse(raw)); } }catch{} }
+function hardReset(){
+  if(!confirm("Tout réinitialiser ? Cela efface toutes les évaluations enregistrées.")) return;
+  localStorage.removeItem(STORAGE_KEY);
+  app.observers=[]; app.group=[]; app.counts={p2:0,p3:0,p4:0,p5:0,libre:0}; app.evals=[]; app.selectedId=null;
+  renderSetup(); renderObserve(); renderEvals(); show("cover");
 }
 
 function toChips(container, arr, onRemove){
@@ -256,209 +220,81 @@ function toChips(container, arr, onRemove){
     container.appendChild(s);
   });
 }
+function splitNames(text){ return text.replace(/\r\n?/g,"\n").split(/[ ,;\n]+/).map(s=>s.trim()).filter(Boolean); }
+function syncEleves(prev, names){ const by=new Map((prev||[]).map(e=>[e.name,e])); return (names||[]).map(n=> by.get(n) || { name:n, note:0, avis:"" }); }
+function makePyramide(t){ const sec=Object.fromEntries(DEFAULT_SECURITE.map(s=>[s,"fragile"])); return { id:uid(), type:t, securite:sec, tenue:"non" }; }
 
-function splitNames(text){
-  return text.replace(/\r\n?/g,"\n").split(/[ ,;\n]+/).map(s=>s.trim()).filter(Boolean);
-}
+/* ========================
+   UI ELEMENTS
+   ======================== */
+const pages = { cover:$("#page-cover"), setup:$("#page-setup"), observe:$("#page-observe"), evals:$("#page-evals") };
+const modeLabel = $("#modeLabel");
+const obsInput=$("#obsInput"), obsChips=$("#obsChips");
+const grpInput=$("#grpInput"), grpChips=$("#grpChips");
+const countInputs = { p2:$("#count-p2"), p3:$("#count-p3"), p4:$("#count-p4"), p5:$("#count-p5"), libre:$("#count-libre") };
+const compoCount=$("#compoCount");
+const compoButtons=$("#compoButtons"), observeContent=$("#observeContent"), badgeTotal=$("#badgeTotal");
+const ensembleSliders=$("#ensembleSliders"), commentaire=$("#commentaire"), noteFinale=$("#noteFinale"), elevesList=$("#elevesList");
 
-function syncEleves(prev, names){
-  const by = new Map((prev||[]).map(e=>[e.name,e]));
-  return (names||[]).map(n=> by.get(n) || { name:n, note:0, avis:"" });
-}
+/* ========================
+   NAV
+   ======================== */
+$("#goSetup").onclick = ()=> show("setup");
+$("#setupBack").onclick = ()=> show("cover");
+$("#setupNext").onclick = ()=> show("observe");
+$("#observeBack").onclick = ()=> show("setup");
+$("#observeNext").onclick = ()=> show("evals");
+$("#evalsBack").onclick = ()=> show("observe");
+$("#btnHardReset").onclick = hardReset;
 
-function makePyramide(t){
-  const sec = Object.fromEntries(DEFAULT_SECURITE.map(s=>[s,"fragile"])); // F/M/B par défaut = fragile
-  return { id: uid(), type:t, securite:sec, tenue:"non" };
-}
+/* ========================
+   SETUP HANDLERS
+   ======================== */
+$("#btnAddCompo").onclick = ()=> addComposition(false);
+$("#btnStartObserve").onclick = ()=> addComposition(true);
+$("#btnResetCounts").onclick = ()=>{ app.counts={p2:0,p3:0,p4:0,p5:0,libre:0}; renderSetup(); save(); };
 
-/** =======================
- *  UI BINDINGS
- *  ======================= */
-const pages = {
-  cover: document.getElementById("page-cover"),
-  setup: document.getElementById("page-setup"),
-  observe: document.getElementById("page-observe"),
-  evals: document.getElementById("page-evals"),
-};
-const modeLabel = document.getElementById("modeLabel");
+$("#btnExportPDF").onclick = exportPDF;
+$("#btnExportJSON").onclick = exportJSON;
+$("#btnExportCSV").onclick = exportCSV;
 
-// chips
-const obsInput = document.getElementById("obsInput");
-const obsChips = document.getElementById("obsChips");
-const grpInput = document.getElementById("grpInput");
-const grpChips = document.getElementById("grpChips");
+obsInput.addEventListener("keydown",(e)=>{ if(["Enter",",",";"].includes(e.key)){ e.preventDefault(); const names=splitNames(obsInput.value); app.observers=[...app.observers, ...names.filter(n=>!app.observers.includes(n))]; obsInput.value=""; renderSetup(); save(); } });
+obsInput.addEventListener("paste",(e)=>{ const t=e.clipboardData?.getData("text")||""; if(/[,\n;]/.test(t)){ e.preventDefault(); const names=splitNames(t); app.observers=[...app.observers, ...names.filter(n=>!app.observers.includes(n))]; renderSetup(); save(); } });
+grpInput.addEventListener("keydown",(e)=>{ if(["Enter",",",";"].includes(e.key)){ e.preventDefault(); const names=splitNames(grpInput.value); app.group=[...app.group, ...names.filter(n=>!app.group.includes(n))]; grpInput.value=""; renderSetup(); save(); } });
+grpInput.addEventListener("paste",(e)=>{ const t=e.clipboardData?.getData("text")||""; if(/[,\n;]/.test(t)){ e.preventDefault(); const names=splitNames(t); app.group=[...app.group, ...names.filter(n=>!app.group.includes(n))]; renderSetup(); save(); } });
 
-// counts
-const countInputs = {
-  p2: document.getElementById("count-p2"),
-  p3: document.getElementById("count-p3"),
-  p4: document.getElementById("count-p4"),
-  p5: document.getElementById("count-p5"),
-  libre: document.getElementById("count-libre"),
-};
-const compoCount = document.getElementById("compoCount");
+Object.keys(countInputs).forEach(k=>{ countInputs[k].addEventListener("input",(e)=>{ const v=Math.max(0, Number(e.target.value)||0); app.counts[k]=v; save(); }); });
 
-// observe
-const compoButtons = document.getElementById("compoButtons");
-const observeContent = document.getElementById("observeContent");
-const badgeTotal = document.getElementById("badgeTotal");
-
-// evals
-const ensembleSliders = document.getElementById("ensembleSliders");
-const commentaire = document.getElementById("commentaire");
-const noteFinale = document.getElementById("noteFinale");
-const elevesList = document.getElementById("elevesList");
-
-// nav buttons
-document.getElementById("goSetup").onclick = ()=> show("setup");
-document.getElementById("setupBack").onclick = ()=> show("cover");
-document.getElementById("setupNext").onclick = ()=> show("observe");
-document.getElementById("observeBack").onclick = ()=> show("setup");
-document.getElementById("observeNext").onclick = ()=> show("evals");
-document.getElementById("evalsBack").onclick = ()=> show("observe");
-
-// setup actions
-document.getElementById("btnAddCompo").onclick = ()=> addComposition(false);
-document.getElementById("btnStartObserve").onclick = ()=> addComposition(true);
-document.getElementById("btnResetCounts").onclick = ()=>{
-  app.counts = { p2:0,p3:0,p4:0,p5:0,libre:0 };
-  renderSetup();
-  save();
-};
-
-// export
-document.getElementById("btnExportPDF").onclick = exportPDF;
-document.getElementById("btnExportJSON").onclick = exportJSON;
-document.getElementById("btnExportCSV").onclick = exportCSV;
-
-// chips inputs
-obsInput.addEventListener("keydown", (e)=>{
-  if(e.key==="Enter"||e.key===","||e.key===";"){
-    e.preventDefault();
-    const names = splitNames(obsInput.value);
-    app.observers = [...app.observers, ...names.filter(n=>!app.observers.includes(n))];
-    obsInput.value="";
-    renderSetup(); save();
-  }
-});
-obsInput.addEventListener("paste",(e)=>{
-  const t = e.clipboardData?.getData("text")||"";
-  if(/[,\n;]/.test(t)){ e.preventDefault(); const names=splitNames(t);
-    app.observers = [...app.observers, ...names.filter(n=>!app.observers.includes(n))];
-    renderSetup(); save();
-  }
-});
-grpInput.addEventListener("keydown", (e)=>{
-  if(e.key==="Enter"||e.key===","||e.key===";"){
-    e.preventDefault();
-    const names = splitNames(grpInput.value);
-    app.group = [...app.group, ...names.filter(n=>!app.group.includes(n))];
-    grpInput.value="";
-    renderSetup(); save();
-  }
-});
-grpInput.addEventListener("paste",(e)=>{
-  const t = e.clipboardData?.getData("text")||"";
-  if(/[,\n;]/.test(t)){ e.preventDefault(); const names=splitNames(t);
-    app.group = [...app.group, ...names.filter(n=>!app.group.includes(n))];
-    renderSetup(); save();
-  }
-});
-
-// counts binding
-Object.keys(countInputs).forEach(k=>{
-  countInputs[k].addEventListener("input",(e)=>{
-    const v = Math.max(0, Number(e.target.value)||0);
-    app.counts[k] = v;
-    save();
-  });
-});
-
-/** =======================
- *  RENDER
- *  ======================= */
+/* ========================
+   RENDER
+   ======================== */
 function show(page){
   Object.values(pages).forEach(el=> el.classList.add("hidden"));
   pages[page].classList.remove("hidden");
   modeLabel.textContent = page==="setup"?"Configuration": page==="observe"?"Observation" : page==="evals"?"Évaluations":"Accueil";
 }
-
 function renderSetup(){
   toChips(obsChips, app.observers, (i)=>{ app.observers.splice(i,1); renderSetup(); save(); });
   toChips(grpChips, app.group, (i)=>{ app.group.splice(i,1); renderSetup(); save(); });
-  countInputs.p2.value = app.counts.p2;
-  countInputs.p3.value = app.counts.p3;
-  countInputs.p4.value = app.counts.p4;
-  countInputs.p5.value = app.counts.p5;
-  countInputs.libre.value = app.counts.libre;
+  countInputs.p2.value=app.counts.p2; countInputs.p3.value=app.counts.p3; countInputs.p4.value=app.counts.p4; countInputs.p5.value=app.counts.p5; countInputs.libre.value=app.counts.libre;
   compoCount.textContent = app.evals.length;
 }
-
 function renderObserve(){
-  // boutons compositions
-  compoButtons.innerHTML = "";
-  app.evals.forEach((ev, idx)=>{
-    const cnt = { p2:0,p3:0,p4:0,p5:0,libre:0 };
-    ev.pyramides.forEach(p=>{ cnt[p.type]++; });
-    const b = document.createElement("button");
-    b.className = "btn " + (app.selectedId===ev.id? "btn-primary":"btn-secondary");
-    b.textContent = `${idx+1}. P2:${cnt.p2} P3:${cnt.p3} P4:${cnt.p4} P5:${cnt.p5} L:${cnt.libre}`;
-    b.onclick = ()=>{ app.selectedId = ev.id; renderObserve(); save(); };
-    compoButtons.appendChild(b);
-  });
-  badgeTotal.textContent = app.evals.length;
-  observeContent.innerHTML = "";
+  compoButtons.innerHTML=""; app.evals.forEach((ev,idx)=>{ const cnt={p2:0,p3:0,p4:0,p5:0,libre:0}; ev.pyramides.forEach(p=>cnt[p.type]++); const b=document.createElement("button"); b.className="btn "+(app.selectedId===ev.id?"btn-primary":"btn-secondary"); b.textContent=`${idx+1}. P2:${cnt.p2} P3:${cnt.p3} P4:${cnt.p4} P5:${cnt.p5} L:${cnt.libre}`; b.onclick=()=>{ app.selectedId=ev.id; renderObserve(); save(); }; compoButtons.appendChild(b); });
+  badgeTotal.textContent=app.evals.length; observeContent.innerHTML=""; const ev=app.evals.find(e=>e.id===app.selectedId); if(!ev){ observeContent.innerHTML=`<div class="muted">Ajoute une composition puis sélectionne-la.</div>`; return; }
+  // Groupe
+  const cardGrp=document.createElement("div"); cardGrp.className="card"; cardGrp.innerHTML=`<div class="title">👥 Groupe (appliqué à l'évaluation individuelle)</div><input type="text" id="grpEdit" placeholder="ex. Inès, Léo" /><div class="chips" id="grpEditChips"></div>`; observeContent.appendChild(cardGrp);
+  const grpEdit=cardGrp.querySelector("#grpEdit"), grpEditChips=cardGrp.querySelector("#grpEditChips");
+  toChips(grpEditChips, ev.groupeList||[], (i)=>{ ev.groupeList.splice(i,1); ev.eleves=syncEleves(ev.eleves, ev.groupeList); renderObserve(); save(); });
+  grpEdit.addEventListener("keydown",(e)=>{ if(["Enter",",",";"].includes(e.key)){ e.preventDefault(); const names=splitNames(grpEdit.value); ev.groupeList=[...(ev.groupeList||[]), ...names.filter(n=>!(ev.groupeList||[]).includes(n))]; ev.eleves=syncEleves(ev.eleves, ev.groupeList); grpEdit.value=""; renderObserve(); save(); } });
+  grpEdit.addEventListener("paste",(e)=>{ const t=e.clipboardData?.getData("text")||""; if(/[,\n;]/.test(t)){ e.preventDefault(); const names=splitNames(t); ev.groupeList=[...(ev.groupeList||[]), ...names.filter(n=>!(ev.groupeList||[]).includes(n))]; ev.eleves=syncEleves(ev.eleves, ev.groupeList); renderObserve(); save(); } });
 
-  const ev = app.evals.find(e=>e.id===app.selectedId);
-  if(!ev){
-    observeContent.innerHTML = `<div class="muted">Ajoute une composition puis sélectionne-la.</div>`;
-    return;
-  }
-
-  // bloc groupe (edit)
-  const cardGrp = document.createElement("div");
-  cardGrp.className = "card";
-  cardGrp.innerHTML = `
-    <div class="title">👥 Groupe (appliqué à l'évaluation individuelle)</div>
-    <input type="text" id="grpEdit" placeholder="ex. Inès, Léo" />
-    <div class="chips" id="grpEditChips"></div>
-  `;
-  observeContent.appendChild(cardGrp);
-
-  const grpEdit = cardGrp.querySelector("#grpEdit");
-  const grpEditChips = cardGrp.querySelector("#grpEditChips");
-  toChips(grpEditChips, ev.groupeList||[], (i)=>{
-    ev.groupeList.splice(i,1);
-    ev.eleves = syncEleves(ev.eleves, ev.groupeList);
-    renderObserve(); save();
-  });
-  grpEdit.addEventListener("keydown", (e)=>{
-    if(e.key==="Enter"||e.key===","||e.key===";"){
-      e.preventDefault();
-      const names = splitNames(grpEdit.value);
-      ev.groupeList = [...(ev.groupeList||[]), ...names.filter(n=>!(ev.groupeList||[]).includes(n))];
-      ev.eleves = syncEleves(ev.eleves, ev.groupeList);
-      grpEdit.value = "";
-      renderObserve(); save();
-    }
-  });
-  grpEdit.addEventListener("paste", (e)=>{
-    const t = e.clipboardData?.getData("text")||"";
-    if(/[,\n;]/.test(t)){ e.preventDefault(); const names=splitNames(t);
-      ev.groupeList = [...(ev.groupeList||[]), ...names.filter(n=>!(ev.groupeList||[]).includes(n))];
-      ev.eleves = syncEleves(ev.eleves, ev.groupeList);
-      renderObserve(); save();
-    }
-  });
-
-  // liste des pyramides
-  const wrap = document.createElement("div");
-  wrap.className = "grid grid-2";
-  ev.pyramides.forEach((p, idx)=>{
-    const el = document.createElement("div");
-    el.className = `pyr ${COLORS[p.type]}`;
-    el.innerHTML = `
-      <div class="bar"><div class="title">#${idx+1} — ${LABEL[p.type]}</div><div class="muted">${NEED[p.type] ? NEED[p.type]+ " élèves" : "libre"}</div></div>
+  // Pyramides
+  const wrap=document.createElement("div"); wrap.className="grid grid-2";
+  ev.pyramides.forEach((p,idx)=>{
+    const el=document.createElement("div"); el.className=`pyr ${COLORS[p.type]}`;
+    el.innerHTML=`
+      <div class="bar"><div class="title">#${idx+1} — ${LABEL[p.type]}</div><div class="muted">${NEED[p.type]? NEED[p.type]+" élèves":"libre"}</div></div>
       <div class="seg">
         <div class="title" style="font-size:14px">⏱️ Tenue 3s</div>
         <div class="row">
@@ -480,238 +316,153 @@ function renderObserve(){
             </div>
           `).join("")}
         </div>
-      </div>
-    `;
-    // bind tenue
-    el.querySelectorAll("[data-tn]").forEach(b=>{
-      b.addEventListener("click", ()=>{
-        p.tenue = b.getAttribute("data-tn");
-        renderObserve(); save();
-      });
-    });
-    // bind fmb
-    el.querySelectorAll(".fmblist").forEach((rowEl, i)=>{
-      rowEl.querySelectorAll("[data-fmb]").forEach(btn=>{
-        btn.addEventListener("click", ()=>{
-          const val = btn.getAttribute("data-fmb");
-          const crit = DEFAULT_SECURITE[i];
-          p.securite[crit] = val;
-          renderObserve(); save();
-        });
-      });
-    });
-
+      </div>`;
+    el.querySelectorAll("[data-tn]").forEach(b=>{ b.addEventListener("click", ()=>{ p.tenue=b.getAttribute("data-tn"); renderObserve(); save(); }); });
+    el.querySelectorAll(".fmblist").forEach((rowEl,i)=>{ rowEl.querySelectorAll("[data-fmb]").forEach(btn=>{ btn.addEventListener("click", ()=>{ const val=btn.getAttribute("data-fmb"); const crit=DEFAULT_SECURITE[i]; p.securite[crit]=val; renderObserve(); save(); }); }); });
     wrap.appendChild(el);
   });
   observeContent.appendChild(wrap);
 }
-
 function renderEvals(){
-  const ev = app.evals.find(e=>e.id===app.selectedId);
-  if(!ev){ return; }
-
-  // sliders ensemble
-  ensembleSliders.innerHTML = "";
+  const ev=app.evals.find(e=>e.id===app.selectedId); if(!ev) return;
+  // — Ensemble (curseurs 0–5 pas de 0,5)
+  ensembleSliders.innerHTML="";
   [
     ["composition","Composition"],
     ["entree","Entrée"],
     ["sortie","Sortie"],
     ["originalite","Originalité"],
   ].forEach(([key,label])=>{
-    const row = document.createElement("div");
-    row.className = "card";
-    row.innerHTML = `
-      <div class="bar"><div class="muted">${label}</div>
+    const val = Number(ev[key]||0);
+    const row=document.createElement("div"); row.className="card";
+    row.innerHTML=`
+      <div class="bar">
+        <div class="muted">${label}</div>
         <div class="row">
-          <button class="btn btn-secondary" data-minus="${key}">−</button>
-          <button class="btn btn-secondary" data-plus="${key}">+</button>
+          <button class="btn btn-secondary" data-minus="${key}">−0,5</button>
+          <button class="btn btn-secondary" data-plus="${key}">+0,5</button>
         </div>
       </div>
       <div class="rangeRow" style="margin-top:8px">
-        <input type="range" min="0" max="5" step="1" value="${ev[key]||0}" data-range="${key}" />
-        <div class="pill">${ev[key]||0}/5</div>
-      </div>
-    `;
-    row.querySelector(`[data-minus="${key}"]`).onclick = ()=>{ ev[key] = Math.max(0,(ev[key]||0)-1); renderEvals(); save(); };
-    row.querySelector(`[data-plus="${key}"]`).onclick = ()=>{ ev[key] = Math.min(5,(ev[key]||0)+1); renderEvals(); save(); };
-    row.querySelector(`[data-range="${key}"]`).oninput = (e)=>{ ev[key] = Number(e.target.value); renderEvals(); save(); };
+        <input type="range" min="0" max="5" step="0.5" value="${val}" data-range="${key}" />
+        <div class="pill"><span data-badge="${key}">${val.toFixed(1)}</span>/5</div>
+      </div>`;
+    row.querySelector(`[data-minus="${key}"]`).onclick = ()=>{ ev[key] = Math.max(0, round05((ev[key]||0) - 0.5)); renderEvals(); save(); };
+    row.querySelector(`[data-plus="${key}"]`).onclick  = ()=>{ ev[key] = Math.min(5, round05((ev[key]||0) + 0.5)); renderEvals(); save(); };
+    row.querySelector(`[data-range="${key}"]`).oninput = (e)=>{ ev[key] = round05(Number(e.target.value)); row.querySelector(`[data-badge="${key}"]`).textContent = Number(ev[key]).toFixed(1); save(); };
     ensembleSliders.appendChild(row);
   });
+  // — Commentaire + Note finale (0,5 autorisés)
+  commentaire.value = ev.commentaire||""; commentaire.oninput=(e)=>{ ev.commentaire=e.target.value; save(); };
+  noteFinale.value = ev.noteFinale||0; noteFinale.oninput=(e)=>{ ev.noteFinale = clamp20(round05(Number(e.target.value)||0)); save(); };
 
-  // commentaire + note
-  commentaire.value = ev.commentaire||"";
-  commentaire.oninput = (e)=>{ ev.commentaire = e.target.value; save(); };
-  noteFinale.value = ev.noteFinale||0;
-  noteFinale.oninput = (e)=>{ ev.noteFinale = Number(e.target.value)||0; save(); };
-
-  // individuel
-  elevesList.innerHTML = "";
-  (ev.eleves||[]).forEach((el, idx)=>{
-    const line = document.createElement("div");
-    line.className = "card";
-    line.innerHTML = `
+  // — Individuel (0,5 autorisés)
+  elevesList.innerHTML=""; (ev.eleves||[]).forEach((el,idx)=>{
+    const line=document.createElement("div"); line.className="card";
+    line.innerHTML=`
       <div class="bar"><div class="title" style="font-size:14px">${el.name}</div></div>
       <div class="row" style="margin-top:6px">
-        <div style="flex:0 0 140px">
+        <div style="flex:0 0 160px">
           <label class="muted">Note /20</label>
-          <input type="number" min="0" max="20" value="${el.note||0}" data-note="${idx}" />
+          <input type="number" min="0" max="20" step="0.5" value="${Number(el.note||0).toFixed(1)}" data-note="${idx}" />
         </div>
         <div style="flex:1">
           <label class="muted">Avis</label>
           <textarea data-avis="${idx}">${el.avis||""}</textarea>
         </div>
-      </div>
-    `;
-    line.querySelector(`[data-note="${idx}"]`).oninput = (e)=>{ el.note = Number(e.target.value)||0; save(); };
-    line.querySelector(`[data-avis="${idx}"]`).oninput = (e)=>{ el.avis = e.target.value; save(); };
+      </div>`;
+    line.querySelector(`[data-note="${idx}"]`).oninput=(e)=>{ el.note = clamp20(round05(Number(e.target.value)||0)); save(); };
+    line.querySelector(`[data-avis="${idx}"]`).oninput=(e)=>{ el.avis = e.target.value; save(); };
     elevesList.appendChild(line);
   });
 }
+function round05(n){ return Math.round(n*2)/2; }
+function clamp20(n){ return Math.min(20, Math.max(0, n)); }
 
-/** =======================
- *  ACTIONS
- *  ======================= */
+/* ========================
+   ACTIONS
+   ======================== */
 function addComposition(goToObserve){
-  const list = [
-    ...Array.from({length: app.counts.p2}, ()=>"p2"),
-    ...Array.from({length: app.counts.p3}, ()=>"p3"),
-    ...Array.from({length: app.counts.p4}, ()=>"p4"),
-    ...Array.from({length: app.counts.p5}, ()=>"p5"),
-    ...Array.from({length: app.counts.libre}, ()=>"libre"),
-  ];
-  const pyramides = list.map(makePyramide);
-  const ev = {
-    id: uid(),
-    date: new Date().toISOString(),
-    observerList: [...app.observers],
-    groupeList: [...app.group],
-    pyramides,
-    composition: 0, entree: 0, sortie: 0, originalite: 0,
-    noteFinale: 0, commentaire: "",
-    eleves: syncEleves([], app.group),
-  };
-  app.evals.unshift(ev);
-  app.selectedId = ev.id;
-  renderSetup(); renderObserve(); save();
-  if(goToObserve) show("observe");
+  const list=[...Array.from({length:app.counts.p2},()=> "p2"), ...Array.from({length:app.counts.p3},()=> "p3"), ...Array.from({length:app.counts.p4},()=> "p4"), ...Array.from({length:app.counts.p5},()=> "p5"), ...Array.from({length:app.counts.libre},()=> "libre")];
+  const pyramides=list.map(makePyramide);
+  const ev={ id:uid(), date:new Date().toISOString(), observerList:[...app.observers], groupeList:[...app.group], pyramides, composition:0,entree:0,sortie:0,originalite:0, noteFinale:0, commentaire:"", eleves:syncEleves([], app.group) };
+  app.evals.unshift(ev); app.selectedId=ev.id; renderSetup(); renderObserve(); renderEvals(); save(); if(goToObserve) show("observe");
 }
 
-/** =======================
- *  EXPORTS
- *  ======================= */
-function exportJSON(){
-  const blob = new Blob([ JSON.stringify(app, null, 2) ], { type:"application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url; a.download = `acrojuge_${new Date().toISOString().slice(0,10)}.json`;
-  document.body.appendChild(a); a.click(); setTimeout(()=>{ a.remove(); URL.revokeObjectURL(url); }, 0);
-}
-
+/* ========================
+   EXPORTS
+   ======================== */
+function exportJSON(){ const blob=new Blob([JSON.stringify(app,null,2)],{type:"application/json"}); download(blob, `acrojuge_${dateStamp()}.json`); }
 function exportCSV(){
-  const securitePoints = DEFAULT_SECURITE;
-  const headers = [
-    "index","date","observateurs","groupe",
-    "p2","p3","p4","p5","libre","total_pyramides",
-    "composition","entree","sortie","originalite","noteFinale",
-    ...securitePoints.map(s=>`SECURITE:${s} (F/M/B)`),
-    "eleves:noms","eleves:notes","eleves:avis",
-  ];
-  const rows = (app.evals||[]).map((e,idx)=>{
-    const counts = { p2:0,p3:0,p4:0,p5:0,libre:0 };
-    const secAgg = Object.fromEntries(securitePoints.map(s=>[s,{fragile:0,moyen:0,bon:0}]));
-    (e.pyramides||[]).forEach(p=>{
-      counts[p.type]++; securitePoints.forEach(s=>{ secAgg[s][p.securite[s]]++; });
-    });
-    const n = (e.eleves||[]).map(el=>el.name).join("|");
-    const notes = (e.eleves||[]).map(el=>el.note||0).join("|");
-    const avis = (e.eleves||[]).map(el=>(el.avis||"").replace(/[\r\n]+/g," ")).join("|");
-    return [
-      idx+1,e.date,(e.observerList||[]).join("|"),(e.groupeList||[]).join("|"),
-      counts.p2,counts.p3,counts.p4,counts.p5,counts.libre,(e.pyramides||[]).length,
-      e.composition,e.entree,e.sortie,e.originalite,e.noteFinale,
-      ...securitePoints.map(s=>`${secAgg[s].fragile}/${secAgg[s].moyen}/${secAgg[s].bon}`),
-      n,notes,avis
-    ];
+  const securitePoints=DEFAULT_SECURITE;
+  const headers=["index","date","observateurs","groupe","p2","p3","p4","p5","libre","total_pyramides","composition","entree","sortie","originalite","noteFinale", ...securitePoints.map(s=>`SECURITE:${s} (F/M/B)`),"eleves:noms","eleves:notes","eleves:avis"];
+  const rows=(app.evals||[]).map((e,idx)=>{
+    const counts={p2:0,p3:0,p4:0,p5:0,libre:0}; const secAgg=Object.fromEntries(securitePoints.map(s=>[s,{fragile:0,moyen:0,bon:0}]));
+    (e.pyramides||[]).forEach(p=>{ counts[p.type]++; securitePoints.forEach(s=>{ secAgg[s][p.securite[s]]++; }); });
+    const n=(e.eleves||[]).map(el=>el.name).join("|");
+    const notes=(e.eleves||[]).map(el=>(el.note??0).toString().replace(".",",")).join("|");
+    const avis=(e.eleves||[]).map(el=>(el.avis||"").replace(/[\r\n]+/g," ")).join("|");
+    return [idx+1,e.date,(e.observerList||[]).join("|"),(e.groupeList||[]).join("|"), counts.p2,counts.p3,counts.p4,counts.p5,counts.libre,(e.pyramides||[]).length, e.composition,e.entree,e.sortie,e.originalite,e.noteFinale, ...securitePoints.map(s=>`${secAgg[s].fragile}/${secAgg[s].moyen}/${secAgg[s].bon}`), n,notes,avis ];
   });
-  const csv = [headers.join(";"), ...rows.map(r=>r.join(";"))].join("\n");
-  const blob = new Blob(["\ufeff"+csv], { type:"text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url; a.download = `acrojuge_${new Date().toISOString().slice(0,10)}.csv`;
-  document.body.appendChild(a); a.click(); setTimeout(()=>{ a.remove(); URL.revokeObjectURL(url); }, 0);
+  const csv=[headers.join(";"), ...rows.map(r=>r.join(";"))].join("\n");
+  const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}); download(blob, `acrojuge_${dateStamp()}.csv`);
 }
-
 function exportPDF(){
   if(window.__HAS_LOCAL_JSPDF__ && window.jspdf){
-    // Export via jsPDF (local, aucun site externe)
     const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ unit:"pt", format:"a4" });
-    const footer = "AcroJuge - Equipe EPS Lycée Vauban - LUXEMBOURG - JB";
-    let y = 40; const maxW = 535;
-    const newLine = (dy=16)=>{ y+=dy; if(y>780){ doc.addPage(); y=40; } };
-
-    doc.setFontSize(14);
-    doc.text("AcroJuge — Observations", 40, y); newLine(24);
-    doc.setFontSize(11);
+    const doc=new jsPDF({unit:"pt",format:"a4"});
+    const footer="AcroJuge - Equipe EPS Lycée Vauban - LUXEMBOURG - JB";
+    let y=40; const maxW=535;
+    const nl=(dy=16)=>{ y+=dy; if(y>780){ doc.addPage(); y=40; } };
+    doc.setFontSize(14); doc.text("AcroJuge — Observations",40,y); nl(24); doc.setFontSize(11);
 
     (app.evals||[]).forEach((e,i)=>{
-      const observers = (e.observerList||[]).join(", ") || "(observateurs)";
-      const groupe = (e.groupeList||[]).join(", ") || "(groupe)";
-      doc.text(`${i+1}. ${groupe} (Obs: ${observers})`, 40, y); newLine();
+      const observers=(e.observerList||[]).join(", ")||"(observateurs)";
+      const groupe=(e.groupeList||[]).join(", ")||"(groupe)";
+      doc.text(`${i+1}. ${groupe} (Obs: ${observers})`,40,y); nl();
 
       if((e.pyramides||[]).length){
-        doc.text("Pyramides de l'enchaînement:", 40, y); newLine();
+        doc.text("Pyramides de l'enchaînement:",40,y); nl();
         (e.pyramides||[]).forEach((p,idx)=>{
-          const sec = Object.entries(p.securite).map(([k,v])=>`${DOT[v]} ${k}`).join(" • ");
-          doc.splitTextToSize(`${idx+1}. ${LABEL[p.type]} — Tenue: ${p.tenue.toUpperCase()} — Sécurité: ${sec}`, maxW)
-             .forEach(ln=>{ doc.text(ln,40,y); newLine(14); });
+          const sec=Object.entries(p.securite).map(([k,v])=>`${DOT[v]} ${k}`).join(" • ");
+          doc.splitTextToSize(`${idx+1}. ${LABEL[p.type]} — Tenue: ${p.tenue.toUpperCase()} — Sécurité: ${sec}`,maxW).forEach(ln=>{ doc.text(ln,40,y); nl(14); });
         });
-        newLine(6);
+        nl(6);
       }
-
-      doc.text(`Ensemble — Composition: ${e.composition}/5 | Entrée: ${e.entree}/5 | Sortie: ${e.sortie}/5 | Originalité: ${e.originalite}/5`,40,y); newLine();
-      doc.text(`Note finale /20: ${e.noteFinale}`,40,y); newLine(8);
-      if(e.commentaire){
-        doc.splitTextToSize(`Commentaire: ${e.commentaire}`, maxW).forEach(ln=>{ doc.text(ln,40,y); newLine(14); });
-      }
-      newLine(8);
-
+      doc.text(`Ensemble — Composition: ${fmt05(e.composition)}/5 | Entrée: ${fmt05(e.entree)}/5 | Sortie: ${fmt05(e.sortie)}/5 | Originalité: ${fmt05(e.originalite)}/5`,40,y); nl();
+      doc.text(`Note finale /20: ${fmt05(e.noteFinale)}`,40,y); nl(8);
+      if(e.commentaire){ doc.splitTextToSize(`Commentaire: ${e.commentaire}`,maxW).forEach(ln=>{ doc.text(ln,40,y); nl(14); }); }
+      nl(8);
       if((e.eleves||[]).length){
-        doc.setFontSize(12); doc.text("Évaluation individuelle",40,y); newLine(); doc.setFontSize(11);
-        (e.eleves||[]).forEach(el=>{
-          doc.text(`• ${el.name} — Note: ${el.note||0}/20`,40,y); newLine();
-          if(el.avis){ doc.splitTextToSize(`   Avis: ${el.avis}`, maxW).forEach(ln=>{ doc.text(ln,40,y); newLine(14); }); }
-        });
-        newLine(10);
+        doc.setFontSize(12); doc.text("Évaluation individuelle",40,y); nl(); doc.setFontSize(11);
+        (e.eleves||[]).forEach(el=>{ doc.text(`• ${el.name} — Note: ${fmt05(el.note)}/20`,40,y); nl(); if(el.avis){ doc.splitTextToSize(`   Avis: ${el.avis}`,maxW).forEach(ln=>{ doc.text(ln,40,y); nl(14); }); } });
+        nl(10);
       }
-
       if(y>760){ doc.addPage(); y=40; }
     });
 
-    // Pied de page
-    const pages = doc.getNumberOfPages();
-    for(let i=1;i<=pages;i++){
-      doc.setPage(i); doc.setFontSize(9); doc.setTextColor(120);
-      doc.text(`${footer}  •  Page ${i}/${pages}  •  ${new Date().toLocaleDateString()}`, 40, 820);
-      doc.setTextColor(0);
-    }
-    doc.save(`AcroJuge_${new Date().toISOString().slice(0,10)}.pdf`);
+    const pages=doc.getNumberOfPages();
+    for(let i=1;i<=pages;i++){ doc.setPage(i); doc.setFontSize(9); doc.setTextColor(120); doc.text(`${footer}  •  Page ${i}/${pages}  •  ${new Date().toLocaleDateString()}`,40,820); doc.setTextColor(0); }
+    doc.save(`AcroJuge_${dateStamp()}.pdf`);
   } else {
-    // Fallback imprimante → “Save/Share as PDF” (iPad/MDM OK + AirDrop)
     window.print();
   }
 }
+function fmt05(n){ return (Number(n)||0).toFixed(1).replace(".",","); }
+function dateStamp(){ return new Date().toISOString().slice(0,10); }
+function download(blob, filename){ const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); setTimeout(()=>{ a.remove(); URL.revokeObjectURL(url); },0); }
 
-/** =======================
- *  INIT
- *  ======================= */
-function init(){
-  load();
-  renderSetup();
-  renderObserve();
-  renderEvals();
-  show("cover");
+/* ========================
+   INIT
+   ======================== */
+function $(id){ return document.getElementById(id); }
+function addComposition(goToObserve){
+  const list=[...Array.from({length:app.counts.p2},()=> "p2"), ...Array.from({length:app.counts.p3},()=> "p3"), ...Array.from({length:app.counts.p4},()=> "p4"), ...Array.from({length:app.counts.p5},()=> "p5"), ...Array.from({length:app.counts.libre},()=> "libre")];
+  const pyramides=list.map(makePyramide);
+  const ev={ id:uid(), date:new Date().toISOString(), observerList:[...app.observers], groupeList:[...app.group], pyramides, composition:0, entree:0, sortie:0, originalite:0, noteFinale:0, commentaire:"", eleves:syncEleves([], app.group) };
+  app.evals.unshift(ev); app.selectedId=ev.id; renderSetup(); renderObserve(); renderEvals(); save(); if(goToObserve) show("observe");
 }
+function init(){ load(); renderSetup(); renderObserve(); renderEvals(); show("cover"); }
 init();
 </script>
 </body>
