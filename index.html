@@ -6,9 +6,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     :root{
-      --bg:#f4f6fb;--card:#fff;--text:#111827;--muted:#6b7280;--border:#e5e7eb;
+      --bg:#f6f8fb;--card:#fff;--text:#111827;--muted:#6b7280;--border:#e5e7eb;
       --p2:#e0f2fe;--p3:#dcfce7;--p4:#fef3c7;--p5:#fae8ff;--libre:#f3f4f6;
-      --ok:#16a34a;--warn:#f59e0b;--bad:#ef4444;
+      --green:#16a34a;--green-dark:#065f46;--red:#ef4444;--amber:#f59e0b;
+      --modal-bg: rgba(0,0,0,.45);
     }
     *{box-sizing:border-box}
     html,body{height:100%}
@@ -16,10 +17,12 @@
     .app{min-height:100dvh;display:flex;flex-direction:column}
     .header{position:sticky;top:0;background:#fff;border-bottom:1px solid var(--border);padding:8px 16px;display:flex;gap:8px;align-items:center;justify-content:flex-end;z-index:10}
     .btn{border:0;border-radius:12px;padding:10px 16px;cursor:pointer;font-weight:700}
-    .btn-green{background:#16a34a;color:#fff}
+    .btn-green{background:var(--green);color:#fff}
+    .btn-green-dark{background:var(--green-dark);color:#fff}
     .btn-blue{background:#2563eb;color:#fff}
     .btn-gray{background:#e5e7eb}
-    .btn-red{background:#ef4444;color:#fff}
+    .btn-red{background:var(--red);color:#fff}
+    .btn-amber{background:var(--amber);color:#111}
     .main{flex:1;display:flex;align-items:center;justify-content:center;padding:24px}
     .section{width:min(1100px,95vw)}
     .pageTitle{text-align:center;margin:8px 0 20px}
@@ -34,7 +37,9 @@
     .card{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:14px}
     .title{font-weight:700;margin-bottom:8px}
     .muted{color:var(--muted);font-size:12px}
-    input[type="text"],input[type="number"],textarea{width:100%;border:1px solid var(--border);border-radius:12px;padding:10px;font-size:14px;background:#fff}
+    input[type="text"],input[type="number"],textarea{width:100%;border:1px solid var(--border);border-radius:12px;padding:10px;font-size:16px;background:#fff}
+    input::placeholder, textarea::placeholder{color:#9ca3af}
+    textarea{min-height:84px;resize:vertical}
     .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
     .chip{background:#f3f4f6;border-radius:999px;padding:6px 10px;font-size:13px;display:inline-flex;gap:8px;align-items:center}
     .chip button{border:0;background:transparent;cursor:pointer;color:#6b7280}
@@ -49,8 +54,14 @@
     .nav{display:flex;justify-content:space-between;gap:10px;margin-top:12px}
     .footer{border-top:1px solid var(--border);background:#fff;padding:10px 16px;text-align:center;color:#6b7280;font-size:12px}
     .hidden{display:none}
+    /* Modal */
+    .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:var(--modal-bg);z-index:50;padding:16px}
+    .modal.show{display:flex}
+    .modal-card{width:min(900px,95vw);max-height:85vh;overflow:auto;background:#fff;border-radius:18px;border:1px solid var(--border);padding:16px}
+    .modal-title{font-weight:800;font-size:18px;margin:0 0 10px}
+    .list-row{display:flex;gap:8px;align-items:center;justify-content:space-between;border:1px solid var(--border);border-radius:12px;padding:10px;background:#fafafa}
     @media print{
-      .header,.nav,.no-print{display:none!important}
+      .header,.nav,.no-print,.modal{display:none!important}
       body{background:#fff}
       .card{break-inside:avoid}
       .footer{display:block!important;position:fixed;bottom:0;left:0;right:0}
@@ -61,8 +72,9 @@
 </head>
 <body>
 <div class="app">
-  <!-- Actions globales -->
+  <!-- Barre d’actions -->
   <header class="header">
+    <button class="btn btn-amber" id="btnHelp">❓ Aide</button>
     <button class="btn btn-blue" id="btnExportPDF" title="Exporter tout (PDF)">📄 Exporter TOUT (PDF)</button>
     <button class="btn btn-red" id="btnHardReset" title="Tout réinitialiser">♻️ Reset</button>
   </header>
@@ -91,7 +103,7 @@
           <div class="title">👀 Observateur·rice(s)</div>
           <input type="text" id="obsInput" placeholder="ex. Ambre, Léo" />
           <div class="chips" id="obsChips"></div>
-          <div class="muted">Coller une liste (virgule / point-virgule / retour ligne).</div>
+          <div class="muted">Colle une liste (virgule / point-virgule / retour ligne).</div>
         </div>
         <div class="col card">
           <div class="title">👥 Groupe observé (par défaut)</div>
@@ -103,7 +115,7 @@
 
       <div class="card" style="margin-top:12px">
         <div class="bar">
-          <div class="title">🗓️ Plan d’enchaînement (prochaine composition)</div>
+          <div class="title">🗓️ Plan d’enchaînement (prochaine observation)</div>
           <div class="muted">Observations créées : <span id="compoCount">0</span></div>
         </div>
         <div class="grid" style="grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-top:8px">
@@ -124,17 +136,16 @@
     <section id="page-observe" class="section hidden">
       <div class="pageTitle">
         <h1>Observation</h1>
-        <div class="sub">Tenue (3s) & Sécurité (🔴/🟡/🟢) pour chaque pyramide</div>
+        <div class="sub">Tenue (3s) & Sécurité (🔴/🟡/🟢/🟩) pour chaque pyramide</div>
       </div>
 
+      <!-- Accès discret à la liste des enchaînements -->
       <div class="card">
         <div class="bar">
-          <div class="title">🎯 Observations (sélection)</div>
-          <div class="muted">Total : <span id="badgeTotal"></span></div>
-        </div>
-        <div id="compoButtons" class="row" style="margin-top:8px"></div>
-        <div class="row" style="margin-top:8px">
-          <button class="btn btn-green" id="btnAddAnother">➕ Ajouter une observation</button>
+          <div class="title">Enchaînement en cours</div>
+          <div class="row">
+            <button class="btn btn-blue" id="btnShowList">📂 Enchaînements</button>
+          </div>
         </div>
       </div>
 
@@ -146,15 +157,15 @@
       </div>
     </section>
 
-    <!-- PAGE 4 : EVALUATIONS (ensemble + individuel) -->
+    <!-- PAGE 4 : EVALUATIONS -->
     <section id="page-evals" class="section hidden">
       <div class="pageTitle">
         <h1>Évaluations</h1>
-        <div class="sub">Ensemble (🔴/🟡/🟢) + Individuel /20</div>
+        <div class="sub">Ensemble (🔴/🟡/🟢/🟩) + Individuel /20</div>
       </div>
 
       <div class="card">
-        <div class="title">📝 Évaluation de l’ensemble (mêmes codes F/M/B que la sécurité)</div>
+        <div class="title">📝 Évaluation de l’ensemble (mêmes codes que la sécurité)</div>
         <div id="ensembleFMB" class="grid grid-2" style="margin-top:8px"></div>
       </div>
 
@@ -166,18 +177,18 @@
       <div class="row" style="margin-top:12px">
         <div class="col card">
           <div class="title">🗒️ Commentaire global</div>
-          <textarea id="commentaire"></textarea>
+          <textarea id="commentaire" placeholder="(facultatif)"></textarea>
         </div>
         <div class="col card">
           <div class="title">🏁 Note finale /20</div>
-          <input type="number" id="noteFinale" min="0" max="20" step="0.5" value="0" />
+          <input type="number" id="noteFinale" min="0" max="20" step="0.5" placeholder="—" />
           <div class="muted" style="margin-top:6px">Demi-points autorisés.</div>
         </div>
       </div>
 
       <div class="nav">
         <button class="btn btn-gray" id="evalsBack">⬅️ Observation</button>
-        <div></div>
+        <button class="btn btn-amber" id="btnNewObservation">➕ Nouvelle observation</button>
       </div>
     </section>
   </main>
@@ -187,9 +198,73 @@
   </footer>
 </div>
 
+<!-- Modal : AIDE -->
+<div class="modal" id="modalHelp">
+  <div class="modal-card">
+    <div class="bar">
+      <h2 class="modal-title">Aide – Comment utiliser AcroJuge</h2>
+      <button class="btn btn-gray" id="helpClose">Fermer</button>
+    </div>
+    <div class="grid">
+      <div class="card">
+        <div class="title">1) Configuration</div>
+        <ul>
+          <li>Ajoute les <b>observateurs</b> (séparés par virgule, point-virgule, ou retour à la ligne).</li>
+          <li>Ajoute le <b>groupe observé</b> (prénoms) : il servira pour l’évaluation individuelle.</li>
+          <li>Renseigne le <b>plan d’enchaînement</b> : nombre de pyramides à 2 / 3 / 4 / 5 / libres.</li>
+          <li>Appuie sur <b>Démarrer l’observation</b> pour créer l’enchaînement et passer à l’observation.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="title">2) Observation</div>
+        <ul>
+          <li>Pour chaque pyramide : <b>Tenue 3s</b> (OUI/NON) et <b>Sécurité</b> pour chaque critère :</li>
+          <li>Codes : 🔴 Fragile, 🟡 Moyen, 🟢 Bon, 🟩 Très bon (vert foncé).</li>
+          <li>Besoin de revoir un autre enchaînement ? Utilise <b>📂 Enchaînements</b>.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="title">3) Évaluations</div>
+        <ul>
+          <li><b>Évaluation de l’ensemble</b> : choisis un niveau F/M/B/TB pour Composition, Entrée, Sortie, Originalité.</li>
+          <li><b>Évaluation individuelle</b> : saisis une <b>note /20</b> par élève (demi-points possibles). Les champs sont vides par défaut.</li>
+          <li>Ajoute un <b>commentaire global</b> et une <b>note finale /20</b> si souhaité (demi-points possibles).</li>
+          <li>Termine par <b>➕ Nouvelle observation</b> si un autre groupe doit être évalué (remet à zéro le groupe et le plan).</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="title">4) Export</div>
+        <ul>
+          <li>Depuis l’en-tête, clique <b>📄 Exporter TOUT (PDF)</b> : un <b>seul document</b> avec toutes les observations (pyramides détaillées + ensemble + individuel).</li>
+          <li>Le PDF a un <b>pied de page</b> et est conçu pour être <b>lisible et pro</b> (A4 portrait). Airdrop OK.</li>
+          <li>Tout est <b>enregistré localement</b> (iPad). Tu peux quitter l’app et reprendre plus tard.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="title">Conseils iPad</div>
+        <ul>
+          <li>Ajouter l’app sur l’écran d’accueil (Safari ⋯ → <b>Sur l’écran d’accueil</b>).</li>
+          <li>Si le PDF ne se télécharge pas, utilise <b>Imprimer</b> → <b>Enregistrer en PDF</b>.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal : LISTE DES ENCHAINEMENTS -->
+<div class="modal" id="modalList">
+  <div class="modal-card">
+    <div class="bar">
+      <h2 class="modal-title">Enchaînements évalués</h2>
+      <button class="btn btn-gray" id="listClose">Fermer</button>
+    </div>
+    <div id="listContainer" class="grid"></div>
+  </div>
+</div>
+
 <script>
 /* ====== PERSISTENCE ====== */
-const STORAGE_KEY = "acrojuge_state_ui_v3"; // persiste sur iPad (localStorage)
+const STORAGE_KEY = "acrojuge_state_ui_v4"; // nouvelle version (TB inclus)
 function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(app)); }
 function load(){ try{ const raw=localStorage.getItem(STORAGE_KEY); if(raw) Object.assign(app, JSON.parse(raw)); }catch{} }
 function hardReset(){
@@ -202,10 +277,10 @@ function hardReset(){
 /* ====== APP STATE ====== */
 function freshApp(){
   return {
-    observers: [],          // liste globale d’observateurs
-    group: [],              // groupe par défaut (sert à initialiser les élèves des nouvelles obs)
-    counts: {p2:0,p3:0,p4:0,p5:0,libre:0}, // plan gabarit
-    evals: [],              // liste d’observations (plusieurs groupes observés)
+    observers: [],
+    group: [],
+    counts: {p2:0,p3:0,p4:0,p5:0,libre:0},
+    evals: [],          // [{id,date,observerList,groupeList,pyramides[],ensemble:{},noteFinale,commentaire,eleves[]}]
     selectedId: null
   };
 }
@@ -222,31 +297,40 @@ const DEFAULT_SECURITE = [
   "Tenue sans danger",
   "Descente sécurisée",
 ];
-const ENSEMBLE_CRITS = ["Composition","Entrée","Sortie","Originalité"]; // F/M/B
+const ENSEMBLE_CRITS = ["Composition","Entrée","Sortie","Originalité"];
+const LEVELS = ["fragile","moyen","bon","tb"]; // tb = très bon
+const DOT = { fragile:"🔴", moyen:"🟡", bon:"🟢", tb:"🟩" };
 
 /* ====== DOM ====== */
 const $ = (id)=> document.getElementById(id);
 document.addEventListener("DOMContentLoaded", ()=>{
+  // Navigation
   $("goSetup").onclick   = ()=> show("setup");
   $("observeBack").onclick = ()=> show("setup");
   $("observeNext").onclick = ()=> show("evals");
   $("evalsBack").onclick   = ()=> show("observe");
+  $("btnNewObservation").onclick = newObservationFlow;
 
+  // Modals
+  $("btnHelp").onclick = ()=> toggleModal("modalHelp", true);
+  $("helpClose").onclick = ()=> toggleModal("modalHelp", false);
+  $("btnShowList").onclick = ()=> { renderListModal(); toggleModal("modalList", true); };
+  $("listClose").onclick = ()=> toggleModal("modalList", false);
+
+  // Reset / Export
   $("btnHardReset").onclick    = hardReset;
   $("btnResetCounts").onclick  = ()=>{ app.counts={p2:0,p3:0,p4:0,p5:0,libre:0}; renderSetup(); save(); };
   $("btnStartObserve").onclick = ()=> addObservation(true);
-  $("btnAddAnother").onclick   = ()=> addObservation(false); // ajoute une obs supplémentaire, reste sur la page Observation
-
   $("btnExportPDF").onclick    = exportPDF;
 
-  // chips observers / group
+  // Chips
   const obsInput=$("obsInput"), grpInput=$("grpInput");
   obsInput.addEventListener("keydown",(e)=>{ if(["Enter",",",";"].includes(e.key)){ e.preventDefault(); addNames("observers", obsInput.value); obsInput.value=""; }});
   obsInput.addEventListener("paste",(e)=>{ const t=e.clipboardData?.getData("text")||""; if(/[,\n;]/.test(t)){ e.preventDefault(); addNames("observers", t); }});
   grpInput.addEventListener("keydown",(e)=>{ if(["Enter",",",";"].includes(e.key)){ e.preventDefault(); addNames("group", grpInput.value); grpInput.value=""; }});
   grpInput.addEventListener("paste",(e)=>{ const t=e.clipboardData?.getData("text")||""; if(/[,\n;]/.test(t)){ e.preventDefault(); addNames("group", t); }});
 
-  // counters
+  // Counters
   ["p2","p3","p4","p5","libre"].forEach(k=>{
     $("count-"+k).addEventListener("input",(e)=>{ app.counts[k] = Math.max(0, Number(e.target.value)||0); save(); });
   });
@@ -254,14 +338,18 @@ document.addEventListener("DOMContentLoaded", ()=>{
   load(); renderAll(); show("cover");
 });
 
-function show(which){ ["page-cover","page-setup","page-observe","page-evals"].forEach(id=>$(id).classList.add("hidden")); $(which==="cover"?"page-cover":which==="setup"?"page-setup":which==="observe"?"page-observe":"page-evals").classList.remove("hidden"); }
-function renderAll(){ renderSetup(); renderObserve(); renderEvals(); }
+function show(which){
+  ["page-cover","page-setup","page-observe","page-evals"].forEach(id=>$(id).classList.add("hidden"));
+  const map={cover:"page-cover",setup:"page-setup",observe:"page-observe",evals:"page-evals"};
+  $(map[which]).classList.remove("hidden");
+}
+function toggleModal(id,open){ $(id).classList.toggle("show", !!open); }
 
 /* ====== HELPERS ====== */
 function uid(){ return Math.random().toString(36).slice(2,10); }
 function toChips(container, arr, onRemove){
   container.innerHTML = "";
-  arr.forEach((name, i)=>{
+  (arr||[]).forEach((name, i)=>{
     const s = document.createElement("span");
     s.className = "chip";
     s.innerHTML = `<span>${name}</span>`;
@@ -279,35 +367,26 @@ function addNames(field, raw){
   else { app.group = [...app.group, ...names.filter(n=>!app.group.includes(n))]; }
   renderSetup(); save();
 }
-function syncEleves(prev, names){ const by=new Map((prev||[]).map(e=>[e.name,e])); return (names||[]).map(n=> by.get(n) || { name:n, note:0 }); }
+function syncEleves(prev, names){ const by=new Map((prev||[]).map(e=>[e.name,e])); return (names||[]).map(n=> by.get(n) || { name:n, note:null }); }
 function makePyramide(t){ const sec=Object.fromEntries(DEFAULT_SECURITE.map(s=>[s,"moyen"])); return { id:uid(), type:t, securite:sec, tenue:"non" }; }
 
-/* ====== RENDERS ====== */
+/* ====== RENDER ====== */
+function renderAll(){ renderSetup(); renderObserve(); renderEvals(); }
+
 function renderSetup(){
   toChips($("obsChips"), app.observers, (i)=>{ app.observers.splice(i,1); renderSetup(); save(); });
   toChips($("grpChips"), app.group, (i)=>{ app.group.splice(i,1); renderSetup(); save(); });
   $("compoCount").textContent = app.evals.length;
   ["p2","p3","p4","p5","libre"].forEach(k=>{ $("count-"+k).value = app.counts[k]; });
 }
-function renderObserve(){
-  const compoButtons=$("compoButtons"), observeContent=$("observeContent"), badgeTotal=$("badgeTotal");
-  compoButtons.innerHTML = "";
-  app.evals.forEach((ev, idx)=>{
-    const cnt = { p2:0,p3:0,p4:0,p5:0,libre:0 };
-    ev.pyramides.forEach(p=> cnt[p.type]++);
-    const b = document.createElement("button");
-    b.className = "btn " + (app.selectedId===ev.id? "btn-green":"btn-gray");
-    b.textContent = `${idx+1}. P2:${cnt.p2} P3:${cnt.p3} P4:${cnt.p4} P5:${cnt.p5} L:${cnt.libre}`;
-    b.onclick = ()=>{ app.selectedId=ev.id; renderObserve(); save(); };
-    compoButtons.appendChild(b);
-  });
-  badgeTotal.textContent = app.evals.length;
 
+function renderObserve(){
+  const observeContent=$("observeContent");
   observeContent.innerHTML = "";
   const ev = app.evals.find(e=>e.id===app.selectedId);
-  if(!ev){ observeContent.innerHTML = `<div class="muted">Crée une observation puis sélectionne-la.</div>`; return; }
+  if(!ev){ observeContent.innerHTML = `<div class="muted">Démarre une observation pour créer le premier enchaînement.</div>`; return; }
 
-  // Groupe éditable pour CETTE observation
+  // Groupe éditable
   const grpCard=document.createElement("div");
   grpCard.className="card";
   grpCard.innerHTML = `
@@ -322,7 +401,7 @@ function renderObserve(){
   grpEdit.addEventListener("keydown",(e)=>{ if(["Enter",",",";"].includes(e.key)){ e.preventDefault(); const names=splitNames(grpEdit.value); ev.groupeList=[...(ev.groupeList||[]), ...names.filter(n=>!(ev.groupeList||[]).includes(n))]; ev.eleves=syncEleves(ev.eleves, ev.groupeList); grpEdit.value=""; renderObserve(); save(); }});
   grpEdit.addEventListener("paste",(e)=>{ const t=e.clipboardData?.getData("text")||""; if(/[,\n;]/.test(t)){ e.preventDefault(); const names=splitNames(t); ev.groupeList=[...(ev.groupeList||[]), ...names.filter(n=>!(ev.groupeList||[]).includes(n))]; ev.eleves=syncEleves(ev.eleves, ev.groupeList); renderObserve(); save(); }});
 
-  // Pyramides (Tenue + Sécurité F/M/B)
+  // Pyramides
   const wrap=document.createElement("div"); wrap.className="grid grid-2";
   ev.pyramides.forEach((p, idx)=>{
     const el=document.createElement("div"); el.className=`pyr ${COLORS[p.type]}`;
@@ -345,6 +424,7 @@ function renderObserve(){
                 <button data-fmb="fragile" class="${p.securite[crit]==='fragile'?'active':''}">🔴 Fragile</button>
                 <button data-fmb="moyen"   class="${p.securite[crit]==='moyen'  ?'active':''}">🟡 Moyen</button>
                 <button data-fmb="bon"     class="${p.securite[crit]==='bon'    ?'active':''}">🟢 Bon</button>
+                <button data-fmb="tb"      class="${p.securite[crit]==='tb'     ?'active':''}">🟩 Très bon</button>
               </div>
             </div>
           `).join("")}
@@ -354,7 +434,7 @@ function renderObserve(){
     el.querySelectorAll("[data-tn]").forEach(btn=>{
       btn.onclick = ()=>{ p.tenue = btn.getAttribute("data-tn"); renderObserve(); save(); };
     });
-    // F/M/B
+    // Sécurité F/M/B/TB
     el.querySelectorAll(".fmblist").forEach((rowEl,i)=>{
       rowEl.querySelectorAll("[data-fmb]").forEach(b=>{
         b.onclick = ()=>{
@@ -367,10 +447,11 @@ function renderObserve(){
   });
   observeContent.appendChild(wrap);
 }
+
 function renderEvals(){
   const ev = app.evals.find(e=>e.id===app.selectedId); if(!ev) return;
 
-  // Ensemble (F/M/B)
+  // Ensemble (F/M/B/TB)
   const cont=$("ensembleFMB");
   cont.innerHTML="";
   if(!ev.ensemble) ev.ensemble = Object.fromEntries(ENSEMBLE_CRITS.map(c=>[c,"moyen"]));
@@ -382,6 +463,7 @@ function renderEvals(){
         <button data-fmb="fragile" class="${ev.ensemble[crit]==='fragile'?'active':''}">🔴 Fragile</button>
         <button data-fmb="moyen"   class="${ev.ensemble[crit]==='moyen'  ?'active':''}">🟡 Moyen</button>
         <button data-fmb="bon"     class="${ev.ensemble[crit]==='bon'    ?'active':''}">🟢 Bon</button>
+        <button data-fmb="tb"      class="${ev.ensemble[crit]==='tb'     ?'active':''}">🟩 Très bon</button>
       </div>`;
     card.querySelectorAll("[data-fmb]").forEach(b=>{
       b.onclick = ()=>{ ev.ensemble[crit] = b.getAttribute("data-fmb"); renderEvals(); save(); };
@@ -389,7 +471,7 @@ function renderEvals(){
     cont.appendChild(card);
   });
 
-  // Individuel (note /20)
+  // Individuel (note /20) — champs vides par défaut
   const elevesList=$("elevesList");
   elevesList.innerHTML="";
   (ev.eleves||[]).forEach((el, idx)=>{
@@ -397,29 +479,57 @@ function renderEvals(){
     line.innerHTML = `
       <div class="bar"><div class="title" style="font-size:14px">${el.name}</div></div>
       <div class="row" style="margin-top:6px">
-        <div style="flex:0 0 180px">
+        <div style="flex:0 0 200px">
           <label class="muted">Note /20</label>
-          <input type="number" min="0" max="20" step="0.5" value="${Number(el.note||0).toFixed(1)}" data-note="${idx}" />
+          <input type="number" min="0" max="20" step="0.5" placeholder="—" value="${el.note ?? ''}" data-note="${idx}" />
         </div>
       </div>`;
-    line.querySelector(`[data-note="${idx}"]`).oninput = (e)=>{ el.note = clamp20(round05(Number(e.target.value)||0)); save(); };
+    line.querySelector(`[data-note="${idx}"]`).oninput = (e)=>{ const v=e.target.value; el.note = v===''? null : clamp20(round05(Number(v)||0)); save(); };
     elevesList.appendChild(line);
   });
 
-  // Commentaire / note finale
+  // Commentaire / note finale (vides si non saisis)
   const commentaire=$("commentaire"), noteFinale=$("noteFinale");
-  commentaire.value = ev.commentaire||"";
+  commentaire.value = ev.commentaire??"";
   commentaire.oninput = (e)=>{ ev.commentaire=e.target.value; save(); };
-  noteFinale.value = (ev.noteFinale||0).toFixed(1);
-  noteFinale.oninput = (e)=>{ ev.noteFinale = clamp20(round05(Number(e.target.value)||0)); save(); };
+  noteFinale.value = ev.noteFinale ?? "";
+  noteFinale.oninput = (e)=>{ const v=e.target.value; ev.noteFinale = v===''? null : clamp20(round05(Number(v)||0)); save(); };
+}
+
+/* ====== LIST MODAL (enchaînements) ====== */
+function renderListModal(){
+  const cont = $("listContainer");
+  cont.innerHTML = "";
+  if(!app.evals.length){
+    cont.innerHTML = `<div class="muted">Aucun enchaînement pour le moment.</div>`;
+    return;
+  }
+  app.evals.forEach((ev, idx)=>{
+    const cnt = { p2:0,p3:0,p4:0,p5:0,libre:0 };
+    (ev.pyramides||[]).forEach(p=> cnt[p.type]++);
+    const row = document.createElement("div");
+    row.className = "list-row";
+    row.innerHTML = `
+      <div>
+        <div><b>${idx+1}.</b> Groupe: ${(ev.groupeList||[]).join(", ")||"(à compléter)"}</div>
+        <div class="muted">P2:${cnt.p2} P3:${cnt.p3} P4:${cnt.p4} P5:${cnt.p5} L:${cnt.libre}</div>
+      </div>
+      <div class="row">
+        <button class="btn btn-blue" data-open="${ev.id}">Ouvrir</button>
+      </div>
+    `;
+    row.querySelector(`[data-open="${ev.id}"]`).onclick = ()=>{
+      app.selectedId = ev.id;
+      toggleModal("modalList", false);
+      renderObserve(); renderEvals(); save();
+    };
+    cont.appendChild(row);
+  });
 }
 
 /* ====== ACTIONS ====== */
 function round05(n){ return Math.round(n*2)/2; }
 function clamp20(n){ return Math.min(20, Math.max(0, n)); }
-function uid(){ return Math.random().toString(36).slice(2,10); }
-function syncEleves(prev, names){ const by=new Map((prev||[]).map(e=>[e.name,e])); return (names||[]).map(n=> by.get(n) || { name:n, note:0 }); }
-function makePyramide(t){ const sec=Object.fromEntries(DEFAULT_SECURITE.map(s=>[s,"moyen"])); return { id:uid(), type:t, securite:sec, tenue:"non" }; }
 
 function addObservation(goToObserve){
   const list = [
@@ -435,7 +545,7 @@ function addObservation(goToObserve){
     observerList:[...app.observers], groupeList:[...app.group],
     pyramides,
     ensemble: Object.fromEntries(ENSEMBLE_CRITS.map(c=>[c,"moyen"])),
-    noteFinale:0, commentaire:"",
+    noteFinale: null, commentaire:"",
     eleves: syncEleves([], app.group),
   };
   app.evals.unshift(ev);
@@ -444,83 +554,89 @@ function addObservation(goToObserve){
   if(goToObserve) show("observe");
 }
 
+// Flow : créer une NOUVELLE observation à la fin (remet groupe et compteurs à zéro, et retour page saisie)
+function newObservationFlow(){
+  app.group = [];
+  app.counts = {p2:0,p3:0,p4:0,p5:0,libre:0};
+  renderSetup(); save();
+  show("setup");
+}
+
 /* ====== EXPORT PDF (TOUT) ====== */
 function exportPDF(){
   const footer = "AcroJuge - Equipe EPS Lycée Vauban - LUXEMBOURG - JB";
-  const dot = { fragile:"🔴", moyen:"🟡", bon:"🟢" };
-
   if(window.__HAS_LOCAL_JSPDF__ && window.jspdf){
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({unit:"pt",format:"a4"});
     let y=60; const left=40, right=555, maxW=right-left;
     const nl=(dy=16)=>{ y+=dy; if(y>780){ addFooterAndPage(); } };
-    const addFooterAndPage=()=>{ // footer page courante puis nouvelle page
-      const p=doc.getCurrentPageInfo().pageNumber;
+    const addFooterAndPage=()=>{ const p=doc.getCurrentPageInfo().pageNumber;
       doc.setFontSize(9); doc.setTextColor(120);
       doc.text(`${footer}  •  Page ${p}/${doc.getNumberOfPages()}  •  ${new Date().toLocaleDateString()}`, left, 820);
       doc.setTextColor(0);
       doc.addPage(); y=60;
     };
+    const dot = { fragile:"🔴", moyen:"🟡", bon:"🟢", tb:"🟩" };
 
-    // Titre global
+    // Titre global + Observateurs
     doc.setFontSize(20); doc.text("AcroJuge — Export de séance", left, y); nl(20);
     doc.setFontSize(11);
-    // Observateurs globaux
     const obs = (app.observers||[]).join(", ") || "(observateurs non saisis)";
     doc.text(`Observateurs: ${obs}`, left, y); nl();
 
-    // Parcours de TOUTES les observations
     (app.evals||[]).forEach((e, i)=>{
-      // Bandeau groupe
-      doc.setFontSize(13);
-      doc.text(`${i+1}. Groupe observé: ${(e.groupeList||[]).join(", ") || "(à compléter)"}`, left, y);
-      doc.setFontSize(11); nl();
+      doc.setFont(undefined, "bold");
+      doc.text(`${i+1}. Groupe observé: ${(e.groupeList||[]).join(", ") || "(à compléter)"}`, left, y); nl();
+      doc.setFont(undefined, "normal");
 
-      // Pyramides
+      // PYRAMIDES
       if((e.pyramides||[]).length){
         doc.text("Pyramides de l'enchaînement:", left, y); nl(10);
         e.pyramides.forEach((p, idx)=>{
-          // Ligne titre pyramide
           doc.setFont(undefined, "bold");
           doc.text(`${idx+1}. ${LABEL[p.type]} — Tenue 3s: ${p.tenue.toUpperCase()}`, left, y); nl();
           doc.setFont(undefined, "normal");
-          // Détail sécurité
-          const secLine = Object.entries(p.securite).map(([k,v])=>`${dot[v]} ${k}`).join("  •  ");
-          doc.splitTextToSize(secLine, maxW).forEach(ln=>{ doc.text(`   ${ln}`, left, y); nl(14); });
+
+          const secLines = Object.entries(p.securite).map(([k,v])=>`${dot[v]} ${k}`);
+          const joined = `Sécurité: ${secLines.join("  •  ")}`;
+          doc.splitTextToSize(joined, maxW).forEach(ln=>{ doc.text(ln, left, y); nl(14); });
           nl(2);
         });
       } else {
         doc.text("(Aucune pyramide)", left, y); nl();
       }
 
-      // Évaluation d'ensemble (F/M/B)
-      const ensLine = ENSEMBLE_CRITS.map(c=>`${c}: ${dot[(e.ensemble||{})[c]||"moyen"]}`).join("   |   ");
-      doc.text(`Évaluation d'ensemble — ${ensLine}`, left, y); nl();
+      // ENSEMBLE (F/M/B/TB) — détaillé
+      const ens = e.ensemble||{};
+      ENSEMBLE_CRITS.forEach(c=>{
+        const lv = ens[c] || "moyen";
+        doc.text(`• ${c}: ${dot[lv]} ${labelLevel(lv)}`, left, y); nl();
+      });
+      nl(2);
 
-      // Note finale + commentaire
-      doc.text(`Note finale /20: ${(e.noteFinale||0).toFixed(1).replace(".",",")}`, left, y); nl();
+      // NOTE FINALE + COMMENTAIRE
+      const finalTxt = e.noteFinale==null ? "—" : String(Number(e.noteFinale).toFixed(1)).replace(".",",");
+      doc.text(`Note finale /20: ${finalTxt}`, left, y); nl();
       if(e.commentaire){
         doc.splitTextToSize(`Commentaire: ${e.commentaire}`, maxW).forEach(ln=>{ doc.text(ln, left, y); nl(14); });
       }
-      nl(4);
+      nl(6);
 
-      // Individuel
+      // INDIVIDUEL
       if((e.eleves||[]).length){
         doc.setFont(undefined,"bold"); doc.text("Évaluation individuelle (notes /20)", left, y); nl();
         doc.setFont(undefined,"normal");
         e.eleves.forEach(el=>{
-          doc.text(`• ${el.name}: ${(Number(el.note||0)).toFixed(1).replace(".",",")}/20`, left, y); nl();
+          const n = el.note==null ? "—" : String(Number(el.note).toFixed(1)).replace(".",",");
+          doc.text(`• ${el.name}: ${n}/20`, left, y); nl();
         });
       }
       nl(12);
-
-      // Séparateur entre groupes
       doc.setDrawColor(220); doc.line(left, y, right, y); doc.setDrawColor(0); nl(12);
-
       if(y>760){ addFooterAndPage(); }
     });
 
-    // Pieds de page pour TOUTES les pages
+    // Pieds de page finalisés
     const total = doc.getNumberOfPages();
     for(let i=1;i<=total;i++){
       doc.setPage(i); doc.setFontSize(9); doc.setTextColor(120);
@@ -529,7 +645,16 @@ function exportPDF(){
     }
     doc.save(`AcroJuge_${new Date().toISOString().slice(0,10)}.pdf`);
   } else {
-    window.print(); // fallback iPad → Imprimer en PDF (AirDrop)
+    window.print();
+  }
+}
+function labelLevel(lv){
+  switch(lv){
+    case "fragile": return "Fragile";
+    case "moyen":   return "Moyen";
+    case "bon":     return "Bon";
+    case "tb":      return "Très bon";
+    default:        return lv;
   }
 }
 </script>
