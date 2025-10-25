@@ -75,14 +75,14 @@
 </head>
 <body>
 <div class="app">
+  <!-- En-tête : Aide + Reset uniquement -->
   <header class="header">
     <button class="btn btn-amber" id="btnHelp">❓ Aide</button>
-    <button class="btn btn-blue" id="btnExportPDF">📄 Exporter TOUT (PDF)</button>
     <button class="btn btn-red" id="btnHardReset">♻️ Reset</button>
   </header>
 
   <main class="main">
-    <!-- COVER -->
+    <!-- PAGE 1 : COVER -->
     <section id="page-cover" class="section">
       <div class="hero">
         <div>
@@ -93,7 +93,7 @@
       </div>
     </section>
 
-    <!-- CONFIG -->
+    <!-- PAGE 2 : CONFIG -->
     <section id="page-setup" class="section hidden">
       <div class="pageTitle">
         <h1>Configuration</h1>
@@ -134,7 +134,7 @@
       </div>
     </section>
 
-    <!-- OBSERVATION -->
+    <!-- PAGE 3 : OBSERVATION -->
     <section id="page-observe" class="section hidden">
       <div class="pageTitle">
         <h1>Observation</h1>
@@ -149,7 +149,7 @@
       </div>
     </section>
 
-    <!-- EVALUATIONS -->
+    <!-- PAGE 4 : EVALUATIONS -->
     <section id="page-evals" class="section hidden">
       <div class="pageTitle">
         <h1>Évaluations</h1>
@@ -183,8 +183,8 @@
         <div class="row">
           <button class="btn btn-blue" id="btnShowList">📂 Enchaînements</button>
           <button class="btn btn-amber" id="btnNewObservation">➕ Nouvelle observation</button>
-          <button class="btn btn-green-dark" id="btnExportByObservers">📄 Exporter – Observateurs (PDF)</button>
-          <button class="btn btn-green" id="btnExportHere">📄 Exporter TOUT (PDF)</button>
+          <!-- Unique bouton d’export -->
+          <button class="btn btn-green-dark" id="btnExportByObservers">📄 Exporter en PDF</button>
         </div>
       </div>
     </section>
@@ -195,7 +195,7 @@
   </footer>
 </div>
 
-<!-- AIDE -->
+<!-- Modal : AIDE -->
 <div class="modal" id="modalHelp">
   <div class="modal-card">
     <div class="bar">
@@ -225,7 +225,7 @@
           <li><b>Évaluation de l’ensemble</b> : F/M/B/TB pour Composition, Entrée, Sortie, Originalité.</li>
           <li><b>Évaluation individuelle</b> : notes /20 (demi-points possibles), champs vides par défaut.</li>
           <li><b>Nouvelle observation</b> : remet le <b>groupe</b> et le <b>plan</b> à zéro, retour “Configuration”.</li>
-          <li>À la fin, <b>Exporter</b> — par <b>Observateurs</b> (leur dossier) ou <b>TOUT</b> (toute la séance).</li>
+          <li>À la fin, appuie sur <b>📄 Exporter en PDF</b> : un <b>seul document</b> au <b>nom des observateurs</b> avec <b>tous</b> les groupes observés.</li>
         </ul>
       </div>
       <div class="card">
@@ -239,7 +239,7 @@
   </div>
 </div>
 
-<!-- LISTE ENCHAINEMENTS -->
+<!-- Modal : LISTE ENCHAINEMENTS -->
 <div class="modal" id="modalList">
   <div class="modal-card">
     <div class="bar">
@@ -252,7 +252,7 @@
 
 <script>
 /* ===== PERSISTENCE ===== */
-const STORAGE_KEY = "acrojuge_state_ui_v6";
+const STORAGE_KEY = "acrojuge_state_ui_v7_single_export";
 function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(app)); }
 function load(){ try{ const raw=localStorage.getItem(STORAGE_KEY); if(raw) Object.assign(app, JSON.parse(raw)); }catch{} }
 function hardReset(){
@@ -292,31 +292,35 @@ const DOT = { fragile:"🔴", moyen:"🟡", bon:"🟢", tb:"🟩" };
 /* ===== DOM ===== */
 const $ = (id)=> document.getElementById(id);
 document.addEventListener("DOMContentLoaded", ()=>{
+  // Navigation
   $("goSetup").onclick     = ()=> show("setup");
   $("observeBack").onclick = ()=> show("setup");
   $("observeNext").onclick = ()=> show("evals");
   $("evalsBack").onclick   = ()=> show("observe");
   $("btnNewObservation").onclick = newObservationFlow;
 
+  // Modals
   $("btnHelp").onclick     = ()=> toggleModal("modalHelp", true);
   $("helpClose").onclick   = ()=> toggleModal("modalHelp", false);
   $("btnShowList").onclick = ()=> { renderListModal(); toggleModal("modalList", true); };
   $("listClose").onclick   = ()=> toggleModal("modalList", false);
 
+  // Reset
   $("btnHardReset").onclick   = hardReset;
   $("btnResetCounts").onclick = ()=>{ app.counts={p2:0,p3:0,p4:0,p5:0,libre:0}; renderSetup(); save(); };
   $("btnStartObserve").onclick= ()=> addObservation(true);
 
-  $("btnExportPDF").onclick   = exportAllPDF;   // en-tête (toute la séance)
-  $("btnExportHere").onclick  = exportAllPDF;   // en bas de page évaluations
-  $("btnExportByObservers").onclick = exportByObserversPDF; // dossier par équipe
+  // Unique export button (par observateurs)
+  $("btnExportByObservers").onclick = exportByObserversPDF;
 
+  // Chips
   const obsInput=$("obsInput"), grpInput=$("grpInput");
   obsInput.addEventListener("keydown",(e)=>{ if(["Enter",",",";"].includes(e.key)){ e.preventDefault(); addNames("observers", obsInput.value); obsInput.value=""; }});
   obsInput.addEventListener("paste",(e)=>{ const t=e.clipboardData?.getData("text")||""; if(/[,\n;]/.test(t)){ e.preventDefault(); addNames("observers", t); }});
   grpInput.addEventListener("keydown",(e)=>{ if(["Enter",",",";"].includes(e.key)){ e.preventDefault(); addNames("group", grpInput.value); grpInput.value=""; }});
   grpInput.addEventListener("paste",(e)=>{ const t=e.clipboardData?.getData("text")||""; if(/[,\n;]/.test(t)){ e.preventDefault(); addNames("group", t); }});
 
+  // Counters
   ["p2","p3","p4","p5","libre"].forEach(k=>{
     $("count-"+k).addEventListener("input",(e)=>{ app.counts[k] = Math.max(0, Number(e.target.value)||0); save(); });
   });
@@ -355,8 +359,15 @@ function addNames(field, raw){
 }
 function syncEleves(prev, names){ const by=new Map((prev||[]).map(e=>[e.name,e])); return (names||[]).map(n=> by.get(n) || { name:n, note:null }); }
 function makePyramide(t){ const sec=Object.fromEntries(DEFAULT_SECURITE.map(s=>[s,"moyen"])); return { id:uid(), type:t, securite:sec, tenue:"non" }; }
-function arraysEqualIgnoreOrder(a=[],b=[]){ const A=[...a].sort(), B=[...b].sort(); if(A.length!==B.length) return false; for(let i=0;i<A.length;i++) if(A[i]!==B[i]) return false; return true; }
 function slugifyNames(arr){ return (arr||[]).map(n=>n.normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-zA-Z0-9]+/g,"_").replace(/^_|_$/g,"")).filter(Boolean).join("_")||"Observateurs"; }
+function normalizeName(s=""){ return s.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim().replace(/\s+/g," "); }
+function arraysEqualIgnoreOrderNormalized(a=[], b=[]){
+  const A=(a||[]).map(normalizeName).filter(Boolean).sort();
+  const B=(b||[]).map(normalizeName).filter(Boolean).sort();
+  if (A.length !== B.length) return false;
+  for (let i=0;i<A.length;i++) if (A[i] !== B[i]) return false;
+  return true;
+}
 
 /* ===== RENDER ===== */
 function renderAll(){ renderSetup(); renderObserve(); renderEvals(); }
@@ -374,6 +385,7 @@ function renderObserve(){
   const ev = app.evals.find(e=>e.id===app.selectedId);
   if(!ev){ observeContent.innerHTML = `<div class="muted">Démarre une observation pour créer le premier enchaînement.</div>`; return; }
 
+  // Groupe éditable
   const grpCard=document.createElement("div");
   grpCard.className="card";
   grpCard.innerHTML = `
@@ -388,6 +400,7 @@ function renderObserve(){
   grpEdit.addEventListener("keydown",(e)=>{ if(["Enter",",",";"].includes(e.key)){ e.preventDefault(); const names=splitNames(grpEdit.value); ev.groupeList=[...(ev.groupeList||[]), ...names.filter(n=>!(ev.groupeList||[]).includes(n))]; ev.eleves=syncEleves(ev.eleves, ev.groupeList); grpEdit.value=""; renderObserve(); save(); }});
   grpEdit.addEventListener("paste",(e)=>{ const t=e.clipboardData?.getData("text")||""; if(/[,\n;]/.test(t)){ e.preventDefault(); const names=splitNames(t); ev.groupeList=[...(ev.groupeList||[]), ...names.filter(n=>!(ev.groupeList||[]).includes(n))]; ev.eleves=syncEleves(ev.eleves, ev.groupeList); renderObserve(); save(); }});
 
+  // Pyramides
   const wrap=document.createElement("div"); wrap.className="grid grid-2";
   ev.pyramides.forEach((p, idx)=>{
     const el=document.createElement("div"); el.className=`pyr ${COLORS[p.type]}`;
@@ -416,9 +429,11 @@ function renderObserve(){
           `).join("")}
         </div>
       </div>`;
+    // Tenue
     el.querySelectorAll("[data-tn]").forEach(btn=>{
       btn.onclick = ()=>{ p.tenue = btn.getAttribute("data-tn"); renderObserve(); save(); };
     });
+    // Sécurité F/M/B/TB
     el.querySelectorAll(".fmblist").forEach((rowEl,i)=>{
       rowEl.querySelectorAll("[data-fmb]").forEach(b=>{
         b.onclick = ()=>{
@@ -435,6 +450,7 @@ function renderObserve(){
 function renderEvals(){
   const ev = app.evals.find(e=>e.id===app.selectedId); if(!ev) return;
 
+  // Ensemble (F/M/B/TB)
   const cont=$("ensembleFMB");
   cont.innerHTML="";
   if(!ev.ensemble) ev.ensemble = Object.fromEntries(ENSEMBLE_CRITS.map(c=>[c,"moyen"]));
@@ -454,6 +470,7 @@ function renderEvals(){
     cont.appendChild(card);
   });
 
+  // Individuel (3 par ligne, pas de valeur par défaut)
   const elevesList=$("elevesList");
   elevesList.innerHTML="";
   (ev.eleves||[]).forEach((el, idx)=>{
@@ -466,6 +483,7 @@ function renderEvals(){
     elevesList.appendChild(item);
   });
 
+  // Commentaire / note finale
   const commentaire=$("commentaire"), noteFinale=$("noteFinale");
   commentaire.value = ev.commentaire??"";
   commentaire.oninput = (e)=>{ ev.commentaire=e.target.value; save(); };
@@ -473,7 +491,7 @@ function renderEvals(){
   noteFinale.oninput = (e)=>{ const v=e.target.value; ev.noteFinale = v===''? null : clamp20(round05(Number(v)||0)); save(); };
 }
 
-/* ===== LISTE ENCHAINEMENTS ===== */
+/* ===== LIST MODAL ===== */
 function renderListModal(){
   const cont = $("listContainer");
   cont.innerHTML = "";
@@ -530,6 +548,7 @@ function addObservation(goToObserve){
   renderSetup(); renderObserve(); renderEvals(); save();
   if(goToObserve) show("observe");
 }
+
 function newObservationFlow(){
   app.group = [];
   app.counts = {p2:0,p3:0,p4:0,p5:0,libre:0};
@@ -537,10 +556,9 @@ function newObservationFlow(){
   show("setup");
 }
 
-/* ===== EXPORT PDF ===== */
-function exportAllPDF(){ renderPDF({ mode:"all" }); }
+/* ===== EXPORT UNIQUE – PAR OBSERVATEURS ===== */
 function exportByObserversPDF(){
-  const team = app.observers||[];
+  const team = (app.observers || []).filter(Boolean);
   if(!team.length){ alert("Renseigne d’abord les observateurs (page Configuration)."); return; }
   renderPDF({ mode:"byObservers", team });
 }
@@ -561,31 +579,27 @@ function renderPDF({mode, team=[]}){
   const dot = { fragile:"🔴", moyen:"🟡", bon:"🟢", tb:"🟩" };
   const levelText = (lv)=> ({fragile:"Fragile",moyen:"Moyen",bon:"Bon",tb:"Très bon"})[lv]||lv;
 
-  // Sélection des observations
-  let selection = (app.evals||[]);
-  let headerTitle = "AcroJuge — Export de séance";
-  let fileName = `AcroJuge_${new Date().toISOString().slice(0,10)}.pdf`;
-  if(mode==="byObservers"){
-    selection = selection.filter(e=>{
-      const list = (e.observerList||[]).filter(Boolean);
-      // s’il n’y a rien sur la fiche, on considère que c’est l’équipe de séance
-      if(list.length===0) return arraysEqualIgnoreOrder(team, app.observers||[]);
-      return arraysEqualIgnoreOrder(list, team);
-    });
-    const label = team.join(", ") || "Observateurs";
-    headerTitle = `Dossier d’observation — Observateurs: ${label}`;
-    fileName = `AcroJuge_${slugifyNames(team)}_${new Date().toISOString().slice(0,10)}.pdf`;
+  // Sélection des observations : uniquement cette équipe (robuste aux accents/ordre/majuscules)
+  let selection = (app.evals || []);
+  let headerTitle = "Dossier d’observation — Observateurs: " + (team.join(", ") || "Observateurs");
+  let fileName    = `AcroJuge_${slugifyNames(team)}_${new Date().toISOString().slice(0,10)}.pdf`;
+
+  const teamNorm = (team || []).map(normalizeName).filter(Boolean);
+  selection = selection.filter(e=>{
+    const list = (e.observerList || []).filter(Boolean);
+    if (list.length === 0) return arraysEqualIgnoreOrderNormalized(teamNorm, (app.observers || []));
+    return arraysEqualIgnoreOrderNormalized(teamNorm, list);
+  });
+
+  if(!selection.length){
+    alert("Aucune observation trouvée pour cette équipe d’observateurs.\nVérifie les noms saisis (page Configuration).");
+    return;
   }
 
   // En-tête
   doc.setFontSize(20); doc.text(headerTitle, left, y); nl(20);
   doc.setFontSize(11);
-  const obs = (app.observers||[]).join(", ") || "(observateurs non saisis)";
-  if(mode==="all"){
-    doc.text(`Observateurs (séance): ${obs}`, left, y); nl();
-  } else {
-    doc.text(`Équipe exportée: ${(team||[]).join(", ")}`, left, y); nl();
-  }
+  doc.text(`Date d’export : ${new Date().toLocaleDateString()}`, left, y); nl();
 
   // Corps
   selection.forEach((e, i)=>{
@@ -593,10 +607,10 @@ function renderPDF({mode, team=[]}){
     doc.setFont(undefined,"bold");
     doc.text(`${i+1}. Groupe observé: ${(e.groupeList||[]).join(", ") || "(à compléter)"}`, left, y); nl();
     doc.setFont(undefined,"normal");
-    const obsLine = (e.observerList||[]).length ? (e.observerList||[]).join(", ") : obs;
-    doc.text(`Observateurs (fiche): ${obsLine}`, left, y); nl(6);
+    const obsLine = (e.observerList||[]).join(", ");
+    if(obsLine) { doc.text(`Observateurs (fiche): ${obsLine}`, left, y); nl(6); }
 
-    // Pyramides
+    // Pyramides détaillées
     if((e.pyramides||[]).length){
       doc.setFont(undefined,"bold"); doc.text("Pyramides de l'enchaînement", left, y); nl(10); doc.setFont(undefined,"normal");
       e.pyramides.forEach((p, idx)=>{
@@ -615,11 +629,11 @@ function renderPDF({mode, team=[]}){
       doc.text("(Aucune pyramide)", left, y); nl();
     }
 
-    // Ensemble
+    // Évaluation d’ensemble
     ensure(40);
     doc.setFont(undefined,"bold"); doc.text("Évaluation d’ensemble", left, y); nl();
     doc.setFont(undefined,"normal");
-    (e.ensemble? ENSEMBLE_CRITS:[]).forEach(c=>{
+    ENSEMBLE_CRITS.forEach(c=>{
       const lv = (e.ensemble||{})[c] || "moyen";
       ensure(18); doc.text(`• ${c}: ${dot[lv]} ${levelText(lv)}`, left, y); nl();
     });
@@ -642,15 +656,16 @@ function renderPDF({mode, team=[]}){
       doc.setFont(undefined,"normal");
       const perRow = 3;
       let xCols = [left, left + (maxW/3), left + 2*(maxW/3)];
-      (e.eleves||[]).forEach((el, idx)=>{
-        const col = idx % perRow;
-        if(col===0 && idx>0){ nl(16); ensure(18); }
+      (e.eleves||[]).forEach((el, idx2)=>{
+        const col = idx2 % perRow;
+        if(col===0 && idx2>0){ nl(16); ensure(18); }
         const n = el.note==null ? "—" : String(Number(el.note).toFixed(1)).replace(".",",");
         doc.text(`${el.name}: ${n}/20`, xCols[col]+4, y);
       });
       nl(18);
     }
 
+    // Séparateur
     ensure(12);
     doc.setDrawColor(220); doc.line(left, y, right, y); doc.setDrawColor(0); nl(12);
   });
