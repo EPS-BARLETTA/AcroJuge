@@ -45,6 +45,7 @@
     .chip button{border:0;background:transparent;cursor:pointer;color:#6b7280}
     .grid{display:grid;gap:10px}
     .grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}
     .bar{display:flex;justify-content:space-between;align-items:center;gap:10px}
     .pyr{border:1px solid var(--border);border-radius:16px;padding:12px}
     .p2{background:var(--p2)} .p3{background:var(--p3)} .p4{background:var(--p4)} .p5{background:var(--p5)} .libre{background:var(--libre)}
@@ -60,6 +61,10 @@
     .modal-card{width:min(900px,95vw);max-height:85vh;overflow:auto;background:#fff;border-radius:18px;border:1px solid var(--border);padding:16px}
     .modal-title{font-weight:800;font-size:18px;margin:0 0 10px}
     .list-row{display:flex;gap:8px;align-items:center;justify-content:space-between;border:1px solid var(--border);border-radius:12px;padding:10px;background:#fafafa}
+    /* compact inputs for individual notes */
+    .note-item{display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:12px;padding:8px;background:#fff}
+    .note-item .who{font-weight:600}
+    .note-item input{width:100px}
     @media print{
       .header,.nav,.no-print,.modal{display:none!important}
       body{background:#fff}
@@ -72,11 +77,11 @@
 </head>
 <body>
 <div class="app">
-  <!-- Barre d’actions -->
+  <!-- En-tête -->
   <header class="header">
     <button class="btn btn-amber" id="btnHelp">❓ Aide</button>
-    <button class="btn btn-blue" id="btnExportPDF" title="Exporter tout (PDF)">📄 Exporter TOUT (PDF)</button>
-    <button class="btn btn-red" id="btnHardReset" title="Tout réinitialiser">♻️ Reset</button>
+    <button class="btn btn-blue" id="btnExportPDF">📄 Exporter TOUT (PDF)</button>
+    <button class="btn btn-red" id="btnHardReset">♻️ Reset</button>
   </header>
 
   <main class="main">
@@ -139,17 +144,7 @@
         <div class="sub">Tenue (3s) & Sécurité (🔴/🟡/🟢/🟩) pour chaque pyramide</div>
       </div>
 
-      <!-- Accès discret à la liste des enchaînements -->
-      <div class="card">
-        <div class="bar">
-          <div class="title">Enchaînement en cours</div>
-          <div class="row">
-            <button class="btn btn-blue" id="btnShowList">📂 Enchaînements</button>
-          </div>
-        </div>
-      </div>
-
-      <div id="observeContent" class="card" style="margin-top:12px"></div>
+      <div id="observeContent" class="card"></div>
 
       <div class="nav">
         <button class="btn btn-gray" id="observeBack">⬅️ Configuration</button>
@@ -165,13 +160,13 @@
       </div>
 
       <div class="card">
-        <div class="title">📝 Évaluation de l’ensemble (mêmes codes que la sécurité)</div>
+        <div class="title">📝 Évaluation de l’ensemble</div>
         <div id="ensembleFMB" class="grid grid-2" style="margin-top:8px"></div>
       </div>
 
       <div class="card" style="margin-top:12px">
         <div class="title">👤 Évaluation individuelle (note /20)</div>
-        <div id="elevesList" class="grid"></div>
+        <div id="elevesList" class="grid grid-3"></div>
       </div>
 
       <div class="row" style="margin-top:12px">
@@ -188,7 +183,11 @@
 
       <div class="nav">
         <button class="btn btn-gray" id="evalsBack">⬅️ Observation</button>
-        <button class="btn btn-amber" id="btnNewObservation">➕ Nouvelle observation</button>
+        <div class="row">
+          <button class="btn btn-blue" id="btnShowList">📂 Enchaînements</button>
+          <button class="btn btn-amber" id="btnNewObservation">➕ Nouvelle observation</button>
+          <button class="btn btn-green-dark" id="btnExportHere">📄 Exporter TOUT (PDF)</button>
+        </div>
       </div>
     </section>
   </main>
@@ -209,8 +208,8 @@
       <div class="card">
         <div class="title">1) Configuration</div>
         <ul>
-          <li>Ajoute les <b>observateurs</b> (séparés par virgule, point-virgule, ou retour à la ligne).</li>
-          <li>Ajoute le <b>groupe observé</b> (prénoms) : il servira pour l’évaluation individuelle.</li>
+          <li>Ajoute les <b>observateurs</b> (séparés par virgule, point-virgule ou retour à la ligne).</li>
+          <li>Ajoute le <b>groupe observé</b> (prénoms) : pour l’évaluation individuelle.</li>
           <li>Renseigne le <b>plan d’enchaînement</b> : nombre de pyramides à 2 / 3 / 4 / 5 / libres.</li>
           <li>Appuie sur <b>Démarrer l’observation</b> pour créer l’enchaînement et passer à l’observation.</li>
         </ul>
@@ -218,32 +217,23 @@
       <div class="card">
         <div class="title">2) Observation</div>
         <ul>
-          <li>Pour chaque pyramide : <b>Tenue 3s</b> (OUI/NON) et <b>Sécurité</b> pour chaque critère :</li>
-          <li>Codes : 🔴 Fragile, 🟡 Moyen, 🟢 Bon, 🟩 Très bon (vert foncé).</li>
-          <li>Besoin de revoir un autre enchaînement ? Utilise <b>📂 Enchaînements</b>.</li>
+          <li>Pour chaque pyramide : <b>Tenue 3s</b> (OUI/NON) et <b>Sécurité</b> par critère.</li>
+          <li>Codes : 🔴 Fragile, 🟡 Moyen, 🟢 Bon, 🟩 Très bon.</li>
         </ul>
       </div>
       <div class="card">
         <div class="title">3) Évaluations</div>
         <ul>
-          <li><b>Évaluation de l’ensemble</b> : choisis un niveau F/M/B/TB pour Composition, Entrée, Sortie, Originalité.</li>
-          <li><b>Évaluation individuelle</b> : saisis une <b>note /20</b> par élève (demi-points possibles). Les champs sont vides par défaut.</li>
-          <li>Ajoute un <b>commentaire global</b> et une <b>note finale /20</b> si souhaité (demi-points possibles).</li>
-          <li>Termine par <b>➕ Nouvelle observation</b> si un autre groupe doit être évalué (remet à zéro le groupe et le plan).</li>
-        </ul>
-      </div>
-      <div class="card">
-        <div class="title">4) Export</div>
-        <ul>
-          <li>Depuis l’en-tête, clique <b>📄 Exporter TOUT (PDF)</b> : un <b>seul document</b> avec toutes les observations (pyramides détaillées + ensemble + individuel).</li>
-          <li>Le PDF a un <b>pied de page</b> et est conçu pour être <b>lisible et pro</b> (A4 portrait). Airdrop OK.</li>
-          <li>Tout est <b>enregistré localement</b> (iPad). Tu peux quitter l’app et reprendre plus tard.</li>
+          <li><b>Évaluation de l’ensemble</b> : F/M/B/TB pour Composition, Entrée, Sortie, Originalité.</li>
+          <li><b>Évaluation individuelle</b> : notes /20 (demi-points possibles), champs vides par défaut.</li>
+          <li><b>Nouvelle observation</b> : remet le <b>groupe</b> et le <b>plan</b> à zéro, retour à “Configuration”.</li>
+          <li>À la fin, <b>Exporter TOUT (PDF)</b> — un seul document avec tous les groupes.</li>
         </ul>
       </div>
       <div class="card">
         <div class="title">Conseils iPad</div>
         <ul>
-          <li>Ajouter l’app sur l’écran d’accueil (Safari ⋯ → <b>Sur l’écran d’accueil</b>).</li>
+          <li>Ajoute l’app à l’écran d’accueil (Safari ⋯ → <b>Sur l’écran d’accueil</b>).</li>
           <li>Si le PDF ne se télécharge pas, utilise <b>Imprimer</b> → <b>Enregistrer en PDF</b>.</li>
         </ul>
       </div>
@@ -251,7 +241,7 @@
   </div>
 </div>
 
-<!-- Modal : LISTE DES ENCHAINEMENTS -->
+<!-- Modal : LISTE ENCHAINEMENTS -->
 <div class="modal" id="modalList">
   <div class="modal-card">
     <div class="bar">
@@ -264,7 +254,7 @@
 
 <script>
 /* ====== PERSISTENCE ====== */
-const STORAGE_KEY = "acrojuge_state_ui_v4"; // nouvelle version (TB inclus)
+const STORAGE_KEY = "acrojuge_state_ui_v5"; // version TB + UI compact notes
 function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(app)); }
 function load(){ try{ const raw=localStorage.getItem(STORAGE_KEY); if(raw) Object.assign(app, JSON.parse(raw)); }catch{} }
 function hardReset(){
@@ -280,13 +270,13 @@ function freshApp(){
     observers: [],
     group: [],
     counts: {p2:0,p3:0,p4:0,p5:0,libre:0},
-    evals: [],          // [{id,date,observerList,groupeList,pyramides[],ensemble:{},noteFinale,commentaire,eleves[]}]
+    evals: [],              // [{id,date,observerList,groupeList,pyramides[],ensemble:{},noteFinale,commentaire,eleves[]}]
     selectedId: null
   };
 }
 const app = freshApp();
 
-/* ====== CONST UI ====== */
+/* ====== CONSTS ====== */
 const LABEL = { p2:"Pyramide à 2", p3:"Pyramide à 3", p4:"Pyramide à 4", p5:"Pyramide à 5", libre:"Pyramide libre" };
 const NEED  = { p2:2, p3:3, p4:4, p5:5 };
 const COLORS= { p2:"p2", p3:"p3", p4:"p4", p5:"p5", libre:"libre" };
@@ -298,30 +288,31 @@ const DEFAULT_SECURITE = [
   "Descente sécurisée",
 ];
 const ENSEMBLE_CRITS = ["Composition","Entrée","Sortie","Originalité"];
-const LEVELS = ["fragile","moyen","bon","tb"]; // tb = très bon
+const LEVELS = ["fragile","moyen","bon","tb"];
 const DOT = { fragile:"🔴", moyen:"🟡", bon:"🟢", tb:"🟩" };
 
 /* ====== DOM ====== */
 const $ = (id)=> document.getElementById(id);
 document.addEventListener("DOMContentLoaded", ()=>{
   // Navigation
-  $("goSetup").onclick   = ()=> show("setup");
+  $("goSetup").onclick     = ()=> show("setup");
   $("observeBack").onclick = ()=> show("setup");
   $("observeNext").onclick = ()=> show("evals");
   $("evalsBack").onclick   = ()=> show("observe");
   $("btnNewObservation").onclick = newObservationFlow;
 
   // Modals
-  $("btnHelp").onclick = ()=> toggleModal("modalHelp", true);
+  $("btnHelp").onclick   = ()=> toggleModal("modalHelp", true);
   $("helpClose").onclick = ()=> toggleModal("modalHelp", false);
   $("btnShowList").onclick = ()=> { renderListModal(); toggleModal("modalList", true); };
-  $("listClose").onclick = ()=> toggleModal("modalList", false);
+  $("listClose").onclick   = ()=> toggleModal("modalList", false);
 
   // Reset / Export
-  $("btnHardReset").onclick    = hardReset;
-  $("btnResetCounts").onclick  = ()=>{ app.counts={p2:0,p3:0,p4:0,p5:0,libre:0}; renderSetup(); save(); };
-  $("btnStartObserve").onclick = ()=> addObservation(true);
-  $("btnExportPDF").onclick    = exportPDF;
+  $("btnHardReset").onclick   = hardReset;
+  $("btnResetCounts").onclick = ()=>{ app.counts={p2:0,p3:0,p4:0,p5:0,libre:0}; renderSetup(); save(); };
+  $("btnStartObserve").onclick= ()=> addObservation(true);
+  $("btnExportPDF").onclick   = exportPDF;
+  $("btnExportHere").onclick  = exportPDF;
 
   // Chips
   const obsInput=$("obsInput"), grpInput=$("grpInput");
@@ -417,7 +408,7 @@ function renderObserve(){
       <div class="seg">
         <div class="title" style="font-size:14px">🔒 Sécurité</div>
         <div class="grid">
-          ${DEFAULT_SECURITE.map((crit,i)=>`
+          ${DEFAULT_SECURITE.map((crit)=>`
             <div class="card" style="padding:8px">
               <div class="muted" style="margin-bottom:6px">${crit}</div>
               <div class="fmblist row">
@@ -471,24 +462,20 @@ function renderEvals(){
     cont.appendChild(card);
   });
 
-  // Individuel (note /20) — champs vides par défaut
+  // Individuel (3 par ligne)
   const elevesList=$("elevesList");
   elevesList.innerHTML="";
   (ev.eleves||[]).forEach((el, idx)=>{
-    const line=document.createElement("div"); line.className="card";
-    line.innerHTML = `
-      <div class="bar"><div class="title" style="font-size:14px">${el.name}</div></div>
-      <div class="row" style="margin-top:6px">
-        <div style="flex:0 0 200px">
-          <label class="muted">Note /20</label>
-          <input type="number" min="0" max="20" step="0.5" placeholder="—" value="${el.note ?? ''}" data-note="${idx}" />
-        </div>
-      </div>`;
-    line.querySelector(`[data-note="${idx}"]`).oninput = (e)=>{ const v=e.target.value; el.note = v===''? null : clamp20(round05(Number(v)||0)); save(); };
-    elevesList.appendChild(line);
+    const item=document.createElement("div"); item.className="note-item";
+    item.innerHTML = `
+      <div class="who">${el.name}</div>
+      <input type="number" min="0" max="20" step="0.5" placeholder="—" value="${el.note ?? ''}" data-note="${idx}" />
+    `;
+    item.querySelector(`[data-note="${idx}"]`).oninput = (e)=>{ const v=e.target.value; el.note = v===''? null : clamp20(round05(Number(v)||0)); save(); };
+    elevesList.appendChild(item);
   });
 
-  // Commentaire / note finale (vides si non saisis)
+  // Commentaire / note finale
   const commentaire=$("commentaire"), noteFinale=$("noteFinale");
   commentaire.value = ev.commentaire??"";
   commentaire.oninput = (e)=>{ ev.commentaire=e.target.value; save(); };
@@ -496,7 +483,7 @@ function renderEvals(){
   noteFinale.oninput = (e)=>{ const v=e.target.value; ev.noteFinale = v===''? null : clamp20(round05(Number(v)||0)); save(); };
 }
 
-/* ====== LIST MODAL (enchaînements) ====== */
+/* ====== LIST MODAL ====== */
 function renderListModal(){
   const cont = $("listContainer");
   cont.innerHTML = "";
@@ -511,7 +498,7 @@ function renderListModal(){
     row.className = "list-row";
     row.innerHTML = `
       <div>
-        <div><b>${idx+1}.</b> Groupe: ${(ev.groupeList||[]).join(", ")||"(à compléter)"}</div>
+        <div><b>${idx+1}.</b> Groupe: ${(ev.groupeList||[]).join(", ")||"(à compléter)"} </div>
         <div class="muted">P2:${cnt.p2} P3:${cnt.p3} P4:${cnt.p4} P5:${cnt.p5} L:${cnt.libre}</div>
       </div>
       <div class="row">
@@ -554,7 +541,6 @@ function addObservation(goToObserve){
   if(goToObserve) show("observe");
 }
 
-// Flow : créer une NOUVELLE observation à la fin (remet groupe et compteurs à zéro, et retour page saisie)
 function newObservationFlow(){
   app.group = [];
   app.counts = {p2:0,p3:0,p4:0,p5:0,libre:0};
@@ -569,74 +555,94 @@ function exportPDF(){
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({unit:"pt",format:"a4"});
     let y=60; const left=40, right=555, maxW=right-left;
-    const nl=(dy=16)=>{ y+=dy; if(y>780){ addFooterAndPage(); } };
-    const addFooterAndPage=()=>{ const p=doc.getCurrentPageInfo().pageNumber;
+    const ensure = (space)=>{ if(y+space>780){ addFooter(); doc.addPage(); y=60; } };
+    const nl=(dy=16)=>{ y+=dy; if(y>780){ addFooter(); doc.addPage(); y=60; } };
+    const addFooter=()=>{ const p=doc.getCurrentPageInfo().pageNumber;
       doc.setFontSize(9); doc.setTextColor(120);
       doc.text(`${footer}  •  Page ${p}/${doc.getNumberOfPages()}  •  ${new Date().toLocaleDateString()}`, left, 820);
       doc.setTextColor(0);
-      doc.addPage(); y=60;
     };
     const dot = { fragile:"🔴", moyen:"🟡", bon:"🟢", tb:"🟩" };
+    const levelText = (lv)=> ({fragile:"Fragile",moyen:"Moyen",bon:"Bon",tb:"Très bon"})[lv]||lv;
 
-    // Titre global + Observateurs
+    // Titre + Observateurs globaux
     doc.setFontSize(20); doc.text("AcroJuge — Export de séance", left, y); nl(20);
     doc.setFontSize(11);
     const obs = (app.observers||[]).join(", ") || "(observateurs non saisis)";
-    doc.text(`Observateurs: ${obs}`, left, y); nl();
+    doc.text(`Observateurs (séance): ${obs}`, left, y); nl();
 
     (app.evals||[]).forEach((e, i)=>{
-      doc.setFont(undefined, "bold");
+      ensure(60);
+      // En-tête groupe
+      doc.setFont(undefined,"bold");
       doc.text(`${i+1}. Groupe observé: ${(e.groupeList||[]).join(", ") || "(à compléter)"}`, left, y); nl();
-      doc.setFont(undefined, "normal");
+      doc.setFont(undefined,"normal");
+      const obsLine = (e.observerList||[]).length ? (e.observerList||[]).join(", ") : obs;
+      doc.text(`Observateurs (fiche): ${obsLine}`, left, y); nl(6);
 
-      // PYRAMIDES
+      // Pyramides (détaillées)
       if((e.pyramides||[]).length){
-        doc.text("Pyramides de l'enchaînement:", left, y); nl(10);
+        doc.setFont(undefined,"bold"); doc.text("Pyramides de l'enchaînement", left, y); nl(10); doc.setFont(undefined,"normal");
         e.pyramides.forEach((p, idx)=>{
-          doc.setFont(undefined, "bold");
+          ensure(40);
+          doc.setFont(undefined,"bold");
           doc.text(`${idx+1}. ${LABEL[p.type]} — Tenue 3s: ${p.tenue.toUpperCase()}`, left, y); nl();
-          doc.setFont(undefined, "normal");
-
-          const secLines = Object.entries(p.securite).map(([k,v])=>`${dot[v]} ${k}`);
-          const joined = `Sécurité: ${secLines.join("  •  ")}`;
-          doc.splitTextToSize(joined, maxW).forEach(ln=>{ doc.text(ln, left, y); nl(14); });
+          doc.setFont(undefined,"normal");
+          const lines = Object.entries(p.securite).map(([k,v])=>`   ${dot[v]} ${k} — ${levelText(v)}`);
+          lines.forEach(ln=>{
+            const wrapped = doc.splitTextToSize(ln, maxW);
+            wrapped.forEach(w=>{ ensure(18); doc.text(w, left, y); nl(14); });
+          });
           nl(2);
         });
       } else {
         doc.text("(Aucune pyramide)", left, y); nl();
       }
 
-      // ENSEMBLE (F/M/B/TB) — détaillé
-      const ens = e.ensemble||{};
+      // Évaluation d’ensemble
+      ensure(40);
+      doc.setFont(undefined,"bold"); doc.text("Évaluation d’ensemble", left, y); nl();
+      doc.setFont(undefined,"normal");
       ENSEMBLE_CRITS.forEach(c=>{
-        const lv = ens[c] || "moyen";
-        doc.text(`• ${c}: ${dot[lv]} ${labelLevel(lv)}`, left, y); nl();
+        const lv = (e.ensemble||{})[c] || "moyen";
+        ensure(18); doc.text(`• ${c}: ${dot[lv]} ${levelText(lv)}`, left, y); nl();
       });
-      nl(2);
+      nl(4);
 
-      // NOTE FINALE + COMMENTAIRE
+      // Note finale + commentaire
+      ensure(18);
       const finalTxt = e.noteFinale==null ? "—" : String(Number(e.noteFinale).toFixed(1)).replace(".",",");
       doc.text(`Note finale /20: ${finalTxt}`, left, y); nl();
       if(e.commentaire){
-        doc.splitTextToSize(`Commentaire: ${e.commentaire}`, maxW).forEach(ln=>{ doc.text(ln, left, y); nl(14); });
+        const wrapped = doc.splitTextToSize(`Commentaire: ${e.commentaire}`, maxW);
+        wrapped.forEach(w=>{ ensure(18); doc.text(w, left, y); nl(14); });
       }
-      nl(6);
+      nl(4);
 
-      // INDIVIDUEL
+      // Individuel (compact)
       if((e.eleves||[]).length){
+        ensure(24);
         doc.setFont(undefined,"bold"); doc.text("Évaluation individuelle (notes /20)", left, y); nl();
         doc.setFont(undefined,"normal");
-        e.eleves.forEach(el=>{
+        // 3 colonnes compactes
+        const perRow = 3;
+        let iRow = 0;
+        let xCols = [left, left + (maxW/3), left + 2*(maxW/3)];
+        (e.eleves||[]).forEach((el, idx)=>{
+          const col = idx % perRow;
+          if(col===0 && idx>0){ nl(16); iRow++; ensure(18); }
           const n = el.note==null ? "—" : String(Number(el.note).toFixed(1)).replace(".",",");
-          doc.text(`• ${el.name}: ${n}/20`, left, y); nl();
+          doc.text(`${el.name}: ${n}/20`, xCols[col]+4, y);
         });
+        nl(18);
       }
-      nl(12);
+
+      // Séparateur
+      ensure(12);
       doc.setDrawColor(220); doc.line(left, y, right, y); doc.setDrawColor(0); nl(12);
-      if(y>760){ addFooterAndPage(); }
     });
 
-    // Pieds de page finalisés
+    // Pieds de page
     const total = doc.getNumberOfPages();
     for(let i=1;i<=total;i++){
       doc.setPage(i); doc.setFontSize(9); doc.setTextColor(120);
@@ -646,15 +652,6 @@ function exportPDF(){
     doc.save(`AcroJuge_${new Date().toISOString().slice(0,10)}.pdf`);
   } else {
     window.print();
-  }
-}
-function labelLevel(lv){
-  switch(lv){
-    case "fragile": return "Fragile";
-    case "moyen":   return "Moyen";
-    case "bon":     return "Bon";
-    case "tb":      return "Très bon";
-    default:        return lv;
   }
 }
 </script>
