@@ -7,7 +7,6 @@
   <style>
     :root{
       --bg:#f4f6fb;--card:#fff;--text:#111827;--muted:#6b7280;
-      --accent:#111827;--accent2:#0ea5e9;
       --border:#e5e7eb;
       --p2:#e0f2fe;--p3:#dcfce7;--p4:#fef3c7;--p5:#fae8ff;--libre:#f3f4f6;
     }
@@ -15,14 +14,11 @@
     html,body{height:100%}
     body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif}
     .app{min-height:100dvh;display:flex;flex-direction:column}
-    /* Header compact: export à droite, mais Titre global centré dans les pages */
     .header{position:sticky;top:0;background:#fff;border-bottom:1px solid var(--border);padding:8px 16px;display:flex;gap:8px;align-items:center;justify-content:flex-end;z-index:10}
-    .btn{border:0;border-radius:12px;padding:8px 12px;cursor:pointer;font-weight:600}
+    .btn{border:0;border-radius:12px;padding:10px 16px;cursor:pointer;font-weight:700}
     .btn:disabled{opacity:.5;cursor:not-allowed}
     .btn-green{background:#16a34a;color:#fff}
     .btn-blue{background:#2563eb;color:#fff}
-    .btn-purple{background:#7c3aed;color:#fff}
-    .btn-yellow{background:#f59e0b;color:#111}
     .btn-gray{background:#e5e7eb}
     .btn-red{background:#ef4444;color:#fff}
     .main{flex:1;display:flex;align-items:center;justify-content:center;padding:24px}
@@ -32,32 +28,29 @@
     .pageTitle .sub{color:var(--muted);font-size:14px;margin-top:6px}
     .hero{display:grid;place-items:center;height:70vh;text-align:center}
     .hero h1{font-size:56px;line-height:1.05;margin:0 0 8px}
-    .hero p{color:var(--muted);font-size:16px;margin:0 0 24px}
+    .hero p{color:var(--muted);font-size:18px;margin:0 0 28px}
+    .start{font-size:18px;padding:14px 28px;border-radius:16px}
     .row{display:flex;gap:12px;flex-wrap:wrap}
     .col{flex:1 1 320px}
     .card{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:14px}
     .title{font-weight:700;margin-bottom:8px}
     .muted{color:var(--muted);font-size:12px}
-    input[type="text"],input[type="number"],textarea,select{width:100%;border:1px solid var(--border);border-radius:12px;padding:10px;font-size:14px;background:#fff}
+    input[type="text"],input[type="number"],textarea{width:100%;border:1px solid var(--border);border-radius:12px;padding:10px;font-size:14px;background:#fff}
     textarea{min-height:84px;resize:vertical}
     .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
     .chip{background:#f3f4f6;border-radius:999px;padding:6px 10px;font-size:13px;display:inline-flex;gap:8px;align-items:center}
     .chip button{border:0;background:transparent;cursor:pointer;color:#6b7280}
     .grid{display:grid;gap:10px}
     .grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}
-    .grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}
-    .rangeRow{display:flex;align-items:center;gap:10px}
-    .rangeRow input[type="range"]{flex:1}
-    .pill{padding:6px 10px;border-radius:999px;background:#f3f4f6;font-size:12px}
     .bar{display:flex;justify-content:space-between;align-items:center;gap:10px}
     .pyr{border:1px solid var(--border);border-radius:16px;padding:12px}
     .p2{background:var(--p2)} .p3{background:var(--p3)} .p4{background:var(--p4)} .p5{background:var(--p5)} .libre{background:var(--libre)}
     .seg{border:1px dashed var(--border);padding:8px;border-radius:12px;margin-top:8px;background:#fff}
     .fmblist button{border:0;border-radius:10px;padding:8px 10px;background:#e5e7eb;cursor:pointer}
     .fmblist button.active{outline:2px solid #111;outline-offset:2px;background:#fff}
+    .footer{border-top:1px solid var(--border);background:#fff;padding:10px 16px;text-align:center;color:#6b7280;font-size:12px}
     .nav{display:flex;justify-content:space-between;gap:10px;margin-top:12px}
     .hidden{display:none}
-    .footer{border-top:1px solid var(--border);background:#fff;padding:10px 16px;text-align:center;color:#6b7280;font-size:12px}
     @media print{
       .header,.nav,.no-print{display:none!important}
       body{background:#fff}
@@ -65,33 +58,30 @@
       .footer{display:block!important;position:fixed;bottom:0;left:0;right:0}
     }
   </style>
-  <!-- jsPDF local (aucun CDN). Présent = export PDF fichier ; sinon fallback Impression→PDF -->
   <script>window.__HAS_LOCAL_JSPDF__=false;</script>
   <script src="libs/jspdf.umd.min.js" onload="window.__HAS_LOCAL_JSPDF__=true" defer></script>
 </head>
 <body>
 <div class="app">
-  <!-- Barre d’actions (exports + reset) -->
+  <!-- Actions globales -->
   <header class="header">
     <button class="btn btn-blue" id="btnExportPDF" title="PDF">📄 PDF</button>
-    <button class="btn btn-purple" id="btnExportJSON" title="JSON">💾 JSON</button>
-    <button class="btn btn-yellow" id="btnExportCSV" title="CSV">⬇️ CSV</button>
     <button class="btn btn-red" id="btnHardReset" title="Tout réinitialiser">♻️ Reset</button>
   </header>
 
   <main class="main">
-    <!-- COVER -->
+    <!-- PAGE 1 : COVER -->
     <section id="page-cover" class="section">
       <div class="hero">
         <div>
           <h1>AcroJuge</h1>
-          <p>Observer • Juger • Exporter — 100% hors-ligne (compatible MDM)</p>
-          <button class="btn btn-green" id="goSetup">Commencer</button>
+          <p>Observer • Juger • Exporter</p>
+          <button class="btn btn-green start" id="goSetup">Commencer</button>
         </div>
       </div>
     </section>
 
-    <!-- SETUP -->
+    <!-- PAGE 2 : CONFIG -->
     <section id="page-setup" class="section hidden">
       <div class="pageTitle">
         <h1>Configuration</h1>
@@ -126,23 +116,17 @@
           <div class="card libre"><label class="muted">Pyramide libre ×</label><input type="number" min="0" id="count-libre" value="0"></div>
         </div>
         <div class="row" style="margin-top:8px">
-          <button class="btn btn-blue" id="btnAddCompo">➕ Ajouter la composition</button>
           <button class="btn btn-gray" id="btnResetCounts">Réinitialiser</button>
           <button class="btn btn-green" id="btnStartObserve">▶️ Démarrer l’observation</button>
         </div>
       </div>
-
-      <div class="nav">
-        <button class="btn btn-gray" id="setupBack">⬅️ Accueil</button>
-        <button class="btn btn-green" id="setupNext">Aller à l’observation ➡️</button>
-      </div>
     </section>
 
-    <!-- OBSERVATION -->
+    <!-- PAGE 3 : OBSERVATION -->
     <section id="page-observe" class="section hidden">
       <div class="pageTitle">
         <h1>Observation</h1>
-        <div class="sub">Saisir la tenue (3s) et la sécurité (🔴/🟡/🟢) pour chaque pyramide</div>
+        <div class="sub">Tenue (3s) & Sécurité (🔴/🟡/🟢) pour chaque pyramide</div>
       </div>
 
       <div class="card">
@@ -161,16 +145,21 @@
       </div>
     </section>
 
-    <!-- EVALUATIONS -->
+    <!-- PAGE 4 : EVALUATIONS -->
     <section id="page-evals" class="section hidden">
       <div class="pageTitle">
         <h1>Évaluations</h1>
-        <div class="sub">Ensemble (0–5 demi-points) + Individuel /20</div>
+        <div class="sub">Ensemble (🔴/🟡/🟢) + Individuel /20</div>
       </div>
 
       <div class="card">
-        <div class="title">📝 Évaluation de l’ensemble (0–5)</div>
-        <div id="ensembleSliders" class="grid grid-2" style="margin-top:8px"></div>
+        <div class="title">📝 Évaluation de l’ensemble (3 niveaux)</div>
+        <div id="ensembleFMB" class="grid grid-2" style="margin-top:8px"></div>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <div class="title">👤 Évaluation individuelle (note /20)</div>
+        <div id="elevesList" class="grid"></div>
       </div>
 
       <div class="row" style="margin-top:12px">
@@ -185,11 +174,6 @@
         </div>
       </div>
 
-      <div class="card" style="margin-top:12px">
-        <div class="title">👤 Évaluation individuelle</div>
-        <div id="elevesList" class="grid"></div>
-      </div>
-
       <div class="nav">
         <button class="btn btn-gray" id="evalsBack">⬅️ Observation</button>
         <div></div>
@@ -197,7 +181,6 @@
     </section>
   </main>
 
-  <!-- Pied de page permanent (écran + impression + PDF) -->
   <footer class="footer">
     AcroJuge - Equipe EPS Lycée Vauban - LUXEMBOURG - JB
   </footer>
@@ -205,8 +188,7 @@
 
 <script>
 /* ====== STATE ====== */
-const STORAGE_KEY = "acrojuge_state_ui_v1";
-const DOT = { fragile:"🔴", moyen:"🟡", bon:"🟢" };
+const STORAGE_KEY = "acrojuge_state_ui_v2";
 const LABEL = { p2:"Pyramide à 2", p3:"Pyramide à 3", p4:"Pyramide à 4", p5:"Pyramide à 5", libre:"Pyramide libre" };
 const NEED = { p2:2, p3:3, p4:4, p5:5 };
 const COLORS = { p2:"p2", p3:"p3", p4:"p4", p5:"p5", libre:"libre" };
@@ -217,7 +199,14 @@ const DEFAULT_SECURITE = [
   "Tenue sans danger",
   "Descente sécurisée",
 ];
-const app = { observers:[], group:[], counts:{p2:0,p3:0,p4:0,p5:0,libre:0}, evals:[], selectedId:null };
+const ENSEMBLE_CRITS = ["Composition","Entrée","Sortie","Originalité"]; // F/M/B comme la sécurité
+
+const app = {
+  observers: [], group: [],
+  counts: { p2:0,p3:0,p4:0,p5:0,libre:0 },
+  evals: [],           // [{id, date, observerList, groupeList, pyramides[], ensemble:{crit:'fragile|moyen|bon'}, noteFinale, commentaire, eleves[]}]
+  selectedId: null
+};
 function uid(){ return Math.random().toString(36).slice(2,10); }
 function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(app)); }
 function load(){ try{ const raw=localStorage.getItem(STORAGE_KEY); if(raw){ Object.assign(app, JSON.parse(raw)); } }catch{} }
@@ -228,17 +217,12 @@ function hardReset(){
   renderSetup(); renderObserve(); renderEvals(); show("cover"); save();
 }
 
-/* ====== MINI DOM HELPERS ====== */
+/* ====== MINI DOM ====== */
 const $ = (id)=> document.getElementById(id);
+const pages = { cover:$("page-cover"), setup:$("page-setup"), observe:$("page-observe"), evals:$("page-evals") };
+function show(which){ for(const k in pages) pages[k].classList.add("hidden"); pages[which].classList.remove("hidden"); }
 
-/* ====== PAGES ====== */
-const pages = { cover: $("page-cover"), setup:$("page-setup"), observe:$("page-observe"), evals:$("page-evals") };
-function show(which){
-  for(const k in pages) pages[k].classList.add("hidden");
-  pages[which].classList.remove("hidden");
-}
-
-/* ====== CHIPS & SYNC ====== */
+/* ====== HELPERS ====== */
 function toChips(container, arr, onRemove){
   container.innerHTML = "";
   arr.forEach((name, i)=>{
@@ -253,72 +237,56 @@ function toChips(container, arr, onRemove){
   });
 }
 function splitNames(text){ return text.replace(/\r\n?/g,"\n").split(/[ ,;\n]+/).map(s=>s.trim()).filter(Boolean); }
-function syncEleves(prev, names){ const by=new Map((prev||[]).map(e=>[e.name,e])); return (names||[]).map(n=> by.get(n) || { name:n, note:0, avis:"" }); }
+function syncEleves(prev, names){ const by=new Map((prev||[]).map(e=>[e.name,e])); return (names||[]).map(n=> by.get(n) || { name:n, note:0 }); }
 function makePyramide(t){ const sec=Object.fromEntries(DEFAULT_SECURITE.map(s=>[s,"fragile"])); return { id:uid(), type:t, securite:sec, tenue:"non" }; }
 
-/* ====== BIND UI ====== */
-const obsInput=$("obsInput"), obsChips=$("obsChips");
-const grpInput=$("grpInput"), grpChips=$("grpChips");
-const countInputs={ p2:$("count-p2"), p3:$("count-p3"), p4:$("count-p4"), p5:$("count-p5"), libre:$("count-libre") };
-const compoCount=$("compoCount");
-const compoButtons=$("compoButtons"), observeContent=$("observeContent"), badgeTotal=$("badgeTotal");
-const ensembleSliders=$("ensembleSliders"), commentaire=$("commentaire"), noteFinale=$("noteFinale"), elevesList=$("elevesList");
-
-/* ====== NAV BUTTONS (bind après DOMContentLoaded pour fiabilité) ====== */
+/* ====== BIND ====== */
 document.addEventListener("DOMContentLoaded", ()=>{
   $("goSetup").addEventListener("click", ()=> show("setup"));
-  $("setupBack").addEventListener("click", ()=> show("cover"));
-  $("setupNext").addEventListener("click", ()=> show("observe"));
   $("observeBack").addEventListener("click", ()=> show("setup"));
   $("observeNext").addEventListener("click", ()=> show("evals"));
   $("evalsBack").addEventListener("click", ()=> show("observe"));
 
   $("btnHardReset").addEventListener("click", hardReset);
-  $("btnAddCompo").addEventListener("click", ()=> addComposition(false));
-  $("btnStartObserve").addEventListener("click", ()=> addComposition(true));
   $("btnResetCounts").addEventListener("click", ()=>{ app.counts={p2:0,p3:0,p4:0,p5:0,libre:0}; renderSetup(); save(); });
+  $("btnStartObserve").addEventListener("click", ()=> addComposition(true));
 
   $("btnExportPDF").addEventListener("click", exportPDF);
-  $("btnExportJSON").addEventListener("click", exportJSON);
-  $("btnExportCSV").addEventListener("click", exportCSV);
 
-  // Entrée rapide observateurs/groupe
-  obsInput.addEventListener("keydown",(e)=>{ if(["Enter",",",";"].includes(e.key)){ e.preventDefault(); addNames("observers", obsInput.value); obsInput.value=""; } });
+  // chips
+  const obsInput=$("obsInput"), obsChips=$("obsChips");
+  const grpInput=$("grpInput"), grpChips=$("grpChips");
+  obsInput.addEventListener("keydown",(e)=>{ if(["Enter",",",";"].includes(e.key)){ e.preventDefault(); addNames("observers", obsInput.value); obsInput.value=""; }});
   obsInput.addEventListener("paste",(e)=>{ const t=e.clipboardData?.getData("text")||""; if(/[,\n;]/.test(t)){ e.preventDefault(); addNames("observers", t); }});
-  grpInput.addEventListener("keydown",(e)=>{ if(["Enter",",",";"].includes(e.key)){ e.preventDefault(); addNames("group", grpInput.value); grpInput.value=""; } });
+  grpInput.addEventListener("keydown",(e)=>{ if(["Enter",",",";"].includes(e.key)){ e.preventDefault(); addNames("group", grpInput.value); grpInput.value=""; }});
   grpInput.addEventListener("paste",(e)=>{ const t=e.clipboardData?.getData("text")||""; if(/[,\n;]/.test(t)){ e.preventDefault(); addNames("group", t); }});
 
-  // Inputs counters
-  Object.keys(countInputs).forEach(k=>{
-    countInputs[k].addEventListener("input",(e)=>{
-      const v = Math.max(0, Number(e.target.value)||0);
-      app.counts[k]=v; save();
-    });
+  // counters
+  ["p2","p3","p4","p5","libre"].forEach(k=>{
+    $("count-"+k).addEventListener("input",(e)=>{ app.counts[k] = Math.max(0, Number(e.target.value)||0); save(); });
   });
 
-  // Init
+  // init
   load(); renderSetup(); renderObserve(); renderEvals(); show("cover");
 });
 
-/* ====== HELPERS ====== */
 function addNames(field, raw){
   const names = splitNames(raw);
-  if(field==="observers"){
-    app.observers = [...app.observers, ...names.filter(n=>!app.observers.includes(n))];
-  } else {
-    app.group = [...app.group, ...names.filter(n=>!app.group.includes(n))];
-  }
+  if(field==="observers"){ app.observers = [...app.observers, ...names.filter(n=>!app.observers.includes(n))]; }
+  else { app.group = [...app.group, ...names.filter(n=>!app.group.includes(n))]; }
   renderSetup(); save();
 }
 
 /* ====== RENDER ====== */
 function renderSetup(){
-  toChips(obsChips, app.observers, (i)=>{ app.observers.splice(i,1); renderSetup(); save(); });
-  toChips(grpChips, app.group, (i)=>{ app.group.splice(i,1); renderSetup(); save(); });
-  for(const k in countInputs){ countInputs[k].value = app.counts[k]; }
-  compoCount.textContent = app.evals.length;
+  toChips($("obsChips"), app.observers, (i)=>{ app.observers.splice(i,1); renderSetup(); save(); });
+  toChips($("grpChips"), app.group, (i)=>{ app.group.splice(i,1); renderSetup(); save(); });
+  $("compoCount").textContent = app.evals.length;
+  ["p2","p3","p4","p5","libre"].forEach(k=>{ $("count-"+k).value = app.counts[k]; });
 }
+
 function renderObserve(){
+  const compoButtons=$("compoButtons"), observeContent=$("observeContent"), badgeTotal=$("badgeTotal");
   compoButtons.innerHTML = "";
   app.evals.forEach((ev, idx)=>{
     const cnt = { p2:0,p3:0,p4:0,p5:0,libre:0 };
@@ -326,34 +294,34 @@ function renderObserve(){
     const b = document.createElement("button");
     b.className = "btn " + (app.selectedId===ev.id? "btn-green":"btn-gray");
     b.textContent = `${idx+1}. P2:${cnt.p2} P3:${cnt.p3} P4:${cnt.p4} P5:${cnt.p5} L:${cnt.libre}`;
-    b.addEventListener("click", ()=>{ app.selectedId = ev.id; renderObserve(); save(); });
+    b.addEventListener("click", ()=>{ app.selectedId=ev.id; renderObserve(); save(); });
     compoButtons.appendChild(b);
   });
   badgeTotal.textContent = app.evals.length;
 
   observeContent.innerHTML = "";
   const ev = app.evals.find(e=>e.id===app.selectedId);
-  if(!ev){ observeContent.innerHTML = `<div class="muted">Ajoute une composition puis sélectionne-la.</div>`; return; }
+  if(!ev){ observeContent.innerHTML = `<div class="muted">Démarre une observation pour créer la première composition.</div>`; return; }
 
-  // Groupe (éditable)
-  const cardGrp = document.createElement("div");
-  cardGrp.className="card";
-  cardGrp.innerHTML = `
-    <div class="title">👥 Groupe (appliqué à l'évaluation individuelle)</div>
+  // Groupe editable
+  const grpCard=document.createElement("div");
+  grpCard.className="card";
+  grpCard.innerHTML = `
+    <div class="title">👥 Groupe (utilisé pour la note individuelle)</div>
     <input type="text" id="grpEdit" placeholder="ex. Inès, Léo" />
     <div class="chips" id="grpEditChips"></div>
   `;
-  observeContent.appendChild(cardGrp);
-  const grpEdit = cardGrp.querySelector("#grpEdit");
-  const grpEditChips = cardGrp.querySelector("#grpEditChips");
+  observeContent.appendChild(grpCard);
+  const grpEdit=grpCard.querySelector("#grpEdit");
+  const grpEditChips=grpCard.querySelector("#grpEditChips");
   toChips(grpEditChips, ev.groupeList||[], (i)=>{ ev.groupeList.splice(i,1); ev.eleves=syncEleves(ev.eleves, ev.groupeList); renderObserve(); save(); });
   grpEdit.addEventListener("keydown",(e)=>{ if(["Enter",",",";"].includes(e.key)){ e.preventDefault(); const names=splitNames(grpEdit.value); ev.groupeList=[...(ev.groupeList||[]), ...names.filter(n=>!(ev.groupeList||[]).includes(n))]; ev.eleves=syncEleves(ev.eleves, ev.groupeList); grpEdit.value=""; renderObserve(); save(); }});
   grpEdit.addEventListener("paste",(e)=>{ const t=e.clipboardData?.getData("text")||""; if(/[,\n;]/.test(t)){ e.preventDefault(); const names=splitNames(t); ev.groupeList=[...(ev.groupeList||[]), ...names.filter(n=>!(ev.groupeList||[]).includes(n))]; ev.eleves=syncEleves(ev.eleves, ev.groupeList); renderObserve(); save(); }});
 
-  // Pyramides
-  const wrap = document.createElement("div"); wrap.className="grid grid-2";
+  // Cartes pyramides
+  const wrap=document.createElement("div"); wrap.className="grid grid-2";
   ev.pyramides.forEach((p, idx)=>{
-    const el = document.createElement("div"); el.className=`pyr ${COLORS[p.type]}`;
+    const el=document.createElement("div"); el.className=`pyr ${COLORS[p.type]}`;
     el.innerHTML = `
       <div class="bar"><div class="title">#${idx+1} — ${LABEL[p.type]}</div><div class="muted">${NEED[p.type]? NEED[p.type]+" élèves":"libre"}</div></div>
       <div class="seg">
@@ -377,11 +345,12 @@ function renderObserve(){
             </div>
           `).join("")}
         </div>
-      </div>
-    `;
+      </div>`;
+    // Tenue
     el.querySelectorAll("[data-tn]").forEach(btn=>{
       btn.addEventListener("click", ()=>{ p.tenue = btn.getAttribute("data-tn"); renderObserve(); save(); });
     });
+    // Sécurité F/M/B
     el.querySelectorAll(".fmblist").forEach((rowEl,i)=>{
       rowEl.querySelectorAll("[data-fmb]").forEach(b=>{
         b.addEventListener("click", ()=>{
@@ -394,67 +363,63 @@ function renderObserve(){
   });
   observeContent.appendChild(wrap);
 }
+
 function renderEvals(){
   const ev = app.evals.find(e=>e.id===app.selectedId); if(!ev) return;
-  ensembleSliders.innerHTML = "";
-  [["composition","Composition"],["entree","Entrée"],["sortie","Sortie"],["originalite","Originalité"]]
-    .forEach(([key,label])=>{
-      const val = Number(ev[key]||0);
-      const row = document.createElement("div"); row.className="card";
-      row.innerHTML = `
-        <div class="bar">
-          <div class="title" style="font-weight:600">${label}</div>
-          <div class="row">
-            <button class="btn btn-gray" data-minus="${key}">−0,5</button>
-            <button class="btn btn-gray" data-plus="${key}">+0,5</button>
-          </div>
-        </div>
-        <div class="rangeRow" style="margin-top:8px">
-          <input type="range" min="0" max="5" step="0.5" value="${val}" data-range="${key}" />
-          <div class="pill"><span data-badge="${key}">${val.toFixed(1)}</span>/5</div>
-        </div>
-      `;
-      row.querySelector(`[data-minus="${key}"]`).onclick = ()=>{
-        ev[key] = Math.max(0, round05((ev[key]||0) - 0.5)); renderEvals(); save();
-      };
-      row.querySelector(`[data-plus="${key}"]`).onclick = ()=>{
-        ev[key] = Math.min(5, round05((ev[key]||0) + 0.5)); renderEvals(); save();
-      };
-      row.querySelector(`[data-range="${key}"]`).oninput = (e)=>{
-        ev[key] = round05(Number(e.target.value)||0);
-        row.querySelector(`[data-badge="${key}"]`).textContent = Number(ev[key]).toFixed(1);
-        save();
-      };
-      ensembleSliders.appendChild(row);
+
+  // Ensemble (F/M/B)
+  const ensemble = $("ensembleFMB");
+  ensemble.innerHTML = "";
+  ENSEMBLE_CRITS.forEach((crit,i)=>{
+    const key = crit; // libellé direct en clé d'objet
+    if(!ev.ensemble) ev.ensemble = {};
+    if(!ev.ensemble[key]) ev.ensemble[key] = "moyen";
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `
+      <div class="title" style="font-size:14px">${crit}</div>
+      <div class="fmblist row" data-crit="${key}">
+        <button data-fmb="fragile" class="${ev.ensemble[key]==='fragile'?'active':''}">🔴 Fragile</button>
+        <button data-fmb="moyen"   class="${ev.ensemble[key]==='moyen'  ?'active':''}">🟡 Moyen</button>
+        <button data-fmb="bon"     class="${ev.ensemble[key]==='bon'    ?'active':''}">🟢 Bon</button>
+      </div>
+    `;
+    card.querySelectorAll("[data-fmb]").forEach(b=>{
+      b.addEventListener("click", ()=>{
+        const v=b.getAttribute("data-fmb");
+        ev.ensemble[key]=v; renderEvals(); save();
+      });
     });
+    ensemble.appendChild(card);
+  });
 
-  commentaire.value = ev.commentaire||"";
-  commentaire.oninput = (e)=>{ ev.commentaire = e.target.value; save(); };
-
-  noteFinale.value = (ev.noteFinale||0).toFixed(1);
-  noteFinale.oninput = (e)=>{ ev.noteFinale = clamp20(round05(Number(e.target.value)||0)); save(); };
-
+  // Individuel — note /20 uniquement
+  const elevesList=$("elevesList");
   elevesList.innerHTML = "";
   (ev.eleves||[]).forEach((el, idx)=>{
-    const line = document.createElement("div"); line.className="card";
+    const line = document.createElement("div");
+    line.className="card";
     line.innerHTML = `
       <div class="bar"><div class="title" style="font-size:14px">${el.name}</div></div>
       <div class="row" style="margin-top:6px">
-        <div style="flex:0 0 160px">
+        <div style="flex:0 0 180px">
           <label class="muted">Note /20</label>
           <input type="number" min="0" max="20" step="0.5" value="${Number(el.note||0).toFixed(1)}" data-note="${idx}" />
-        </div>
-        <div style="flex:1">
-          <label class="muted">Avis</label>
-          <textarea data-avis="${idx}">${el.avis||""}</textarea>
         </div>
       </div>
     `;
     line.querySelector(`[data-note="${idx}"]`).oninput = (e)=>{ el.note = clamp20(round05(Number(e.target.value)||0)); save(); };
-    line.querySelector(`[data-avis="${idx}"]`).oninput = (e)=>{ el.avis = e.target.value; save(); };
     elevesList.appendChild(line);
   });
+
+  // Commentaire + Note finale
+  const commentaire=$("commentaire"), noteFinale=$("noteFinale");
+  commentaire.value = ev.commentaire||"";
+  commentaire.oninput = (e)=>{ ev.commentaire=e.target.value; save(); };
+  noteFinale.value = (ev.noteFinale||0).toFixed(1);
+  noteFinale.oninput = (e)=>{ ev.noteFinale = clamp20(round05(Number(e.target.value)||0)); save(); };
 }
+
 function round05(n){ return Math.round(n*2)/2; }
 function clamp20(n){ return Math.min(20, Math.max(0, n)); }
 
@@ -471,7 +436,8 @@ function addComposition(goToObserve){
   const ev = {
     id:uid(), date:new Date().toISOString(),
     observerList:[...app.observers], groupeList:[...app.group],
-    pyramides, composition:0, entree:0, sortie:0, originalite:0,
+    pyramides,
+    ensemble: Object.fromEntries(ENSEMBLE_CRITS.map(c=>[c,"moyen"])),
     noteFinale:0, commentaire:"",
     eleves: syncEleves([], app.group),
   };
@@ -481,27 +447,8 @@ function addComposition(goToObserve){
   if(goToObserve) show("observe");
 }
 
-/* ====== EXPORTS ====== */
+/* ====== EXPORT PDF ====== */
 function dateStamp(){ return new Date().toISOString().slice(0,10); }
-function download(blob, filename){ const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); setTimeout(()=>{ a.remove(); URL.revokeObjectURL(url); },0); }
-function fmt05(n){ return (Number(n)||0).toFixed(1).replace(".",","); }
-
-function exportJSON(){ download(new Blob([JSON.stringify(app,null,2)],{type:"application/json"}), `AcroJuge_${dateStamp()}.json`); }
-function exportCSV(){
-  const securitePoints = DEFAULT_SECURITE;
-  const headers = ["index","date","observateurs","groupe","p2","p3","p4","p5","libre","total_pyramides","composition","entree","sortie","originalite","noteFinale", ...securitePoints.map(s=>`SECURITE:${s} (F/M/B)`),"eleves:noms","eleves:notes","eleves:avis"];
-  const rows = (app.evals||[]).map((e,idx)=>{
-    const counts = { p2:0,p3:0,p4:0,p5:0,libre:0 };
-    const secAgg = Object.fromEntries(securitePoints.map(s=>[s,{fragile:0,moyen:0,bon:0}]));
-    (e.pyramides||[]).forEach(p=>{ counts[p.type]++; securitePoints.forEach(s=>{ secAgg[s][p.securite[s]]++; }); });
-    const n = (e.eleves||[]).map(el=>el.name).join("|");
-    const notes = (e.eleves||[]).map(el=>(el.note??0).toString().replace(".",",")).join("|");
-    const avis = (e.eleves||[]).map(el=>(el.avis||"").replace(/[\r\n]+/g," ")).join("|");
-    return [idx+1,e.date,(e.observerList||[]).join("|"),(e.groupeList||[]).join("|"), counts.p2,counts.p3,counts.p4,counts.p5,counts.libre,(e.pyramides||[]).length, e.composition,e.entree,e.sortie,e.originalite,e.noteFinale, ...securitePoints.map(s=>`${secAgg[s].fragile}/${secAgg[s].moyen}/${secAgg[s].bon}`), n, notes, avis ];
-  });
-  const csv = [headers.join(";"), ...rows.map(r=>r.join(";"))].join("\n");
-  download(new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}), `AcroJuge_${dateStamp()}.csv`);
-}
 function exportPDF(){
   const footer = "AcroJuge - Equipe EPS Lycée Vauban - LUXEMBOURG - JB";
   if(window.__HAS_LOCAL_JSPDF__ && window.jspdf){
@@ -509,32 +456,50 @@ function exportPDF(){
     const doc = new jsPDF({unit:"pt",format:"a4"});
     let y=60; const maxW=535;
     const nl=(dy=16)=>{ y+=dy; if(y>780){ doc.addPage(); y=60; } };
+    const dot = { fragile:"🔴", moyen:"🟡", bon:"🟢" };
 
-    doc.setFontSize(20); doc.text("AcroJuge", 40, y); nl(10);
+    doc.setFontSize(20); doc.text("AcroJuge — Export", 40, y); nl(20);
     doc.setFontSize(11);
 
     (app.evals||[]).forEach((e,i)=>{
       const observers=(e.observerList||[]).join(", ")||"(observateurs)";
       const groupe=(e.groupeList||[]).join(", ")||"(groupe)";
-      doc.text(`${i+1}. ${groupe} (Obs: ${observers})`,40,y); nl();
+      doc.text(`${i+1}. Groupe: ${groupe}  —  Observateurs: ${observers}`,40,y); nl();
 
+      // Pyramides
       if((e.pyramides||[]).length){
         doc.text("Pyramides de l'enchaînement:",40,y); nl();
         (e.pyramides||[]).forEach((p,idx)=>{
-          const sec=Object.entries(p.securite).map(([k,v])=>`${DOT[v]} ${k}`).join(" • ");
-          doc.splitTextToSize(`${idx+1}. ${LABEL[p.type]} — Tenue: ${p.tenue.toUpperCase()} — Sécurité: ${sec}`,maxW).forEach(ln=>{ doc.text(ln,40,y); nl(14); });
+          const secArr = Object.entries(p.securite).map(([k,v])=>`${dot[v]} ${k}`);
+          doc.splitTextToSize(`${idx+1}. ${LABEL[p.type]} — Tenue: ${p.tenue.toUpperCase()}`, maxW)
+             .forEach(ln=>{ doc.text(ln,40,y); nl(14); });
+          doc.splitTextToSize(`   Sécurité: ${secArr.join(" • ")}`, maxW)
+             .forEach(ln=>{ doc.text(ln,40,y); nl(14); });
         });
         nl(6);
       }
 
-      doc.text(`Ensemble — Composition: ${fmt05(e.composition)}/5 | Entrée: ${fmt05(e.entree)}/5 | Sortie: ${fmt05(e.sortie)}/5 | Originalité: ${fmt05(e.originalite)}/5`,40,y); nl();
-      doc.text(`Note finale /20: ${fmt05(e.noteFinale)}`,40,y); nl(8);
-      if(e.commentaire){ doc.splitTextToSize(`Commentaire: ${e.commentaire}`,maxW).forEach(ln=>{ doc.text(ln,40,y); nl(14); }); }
+      // Ensemble (F/M/B)
+      const ens = e.ensemble||{};
+      const line = ENSEMBLE_CRITS.map(c=>`${c}: ${dot[ens[c]||"moyen"]}`).join("   |   ");
+      doc.text(`Évaluation d’ensemble — ${line}`, 40, y); nl();
+
+      // Note finale
+      doc.text(`Note finale /20: ${(e.noteFinale||0).toFixed(1).replace(".",",")}`,40,y); nl(8);
+
+      // Commentaire
+      if(e.commentaire){
+        doc.splitTextToSize(`Commentaire: ${e.commentaire}`, maxW)
+           .forEach(ln=>{ doc.text(ln,40,y); nl(14); });
+      }
       nl(8);
 
+      // Individuel (notes)
       if((e.eleves||[]).length){
-        doc.setFontSize(12); doc.text("Évaluation individuelle",40,y); nl(); doc.setFontSize(11);
-        (e.eleves||[]).forEach(el=>{ doc.text(`• ${el.name} — Note: ${fmt05(el.note)}/20`,40,y); nl(); if(el.avis){ doc.splitTextToSize(`   Avis: ${el.avis}`,maxW).forEach(ln=>{ doc.text(ln,40,y); nl(14); }); } });
+        doc.setFontSize(12); doc.text("Évaluation individuelle (notes /20)",40,y); nl(); doc.setFontSize(11);
+        (e.eleves||[]).forEach(el=>{
+          doc.text(`• ${el.name}: ${(Number(el.note||0)).toFixed(1).replace(".",",")}/20`,40,y); nl();
+        });
         nl(10);
       }
 
@@ -550,7 +515,7 @@ function exportPDF(){
     }
     doc.save(`AcroJuge_${dateStamp()}.pdf`);
   } else {
-    window.print(); // Imprimer → PDF (iPad / Airdrop OK)
+    window.print(); // fallback Imprimer → PDF (iPad/AirDrop)
   }
 }
 </script>
