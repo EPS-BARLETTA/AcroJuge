@@ -1,848 +1,578 @@
-import React, { useMemo, useState, useEffect, useRef } from "react";
-import { jsPDF } from "jspdf";
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <title>AcroJuge</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-// --- Helpers ---
-const uid = () => Math.random().toString(36).slice(2, 10);
-const STORAGE_KEY = "acro_jugements_v8"; // compositions avec pyramides P2..P5 + Libre, critères au niveau de l'ensemble
+    <!-- Tailwind (CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
 
-const DEFAULT_SECURITE_POINTS = [
-  "Rôles définis (porteurs / voltige)",
-  "Prises sûres et alignements",
-  "Montée contrôlée",
-  "Tenue sans danger",
-  "Descente sécurisée",
-];
+    <!-- React 18 (UMD) -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 
-// Téléchargements fiables (iOS/Safari compris)
-function triggerDownload(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.setAttribute("download", filename);
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(() => {
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }, 0);
-}
+    <!-- Babel pour transformer TypeScript + JSX dans le navigateur -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-// Synchronise la liste d'élèves avec les prénoms du groupe
-function syncEleves(
-  prev: Array<{ name: string; note: number; avis: string }> = [],
-  names: string[] = []
-) {
-  const by = new Map(prev.map((e) => [e.name, e] as const));
-  return names.map((n) => by.get(n) || { name: n, note: 0, avis: "" });
-}
+    <!-- jsPDF (UMD) -->
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 
-// Champ multi-valeurs simple (chips)
-function ChipInput({
-  label,
-  values,
-  setValues,
-  placeholder,
-}: {
-  label: string;
-  values: string[];
-  setValues: (vals: string[]) => void;
-  placeholder?: string;
-}) {
-  const [input, setInput] = useState("");
-  const ref = useRef<HTMLInputElement | null>(null);
+    <style>
+      html, body, #root { height: 100%; }
+      body { background: #f8fafc; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
 
-  const add = (v: string) => {
-    const t = (v || "").trim();
-    if (!t) return;
-    if ((values || []).includes(t)) return;
-    setValues([...(values || []), t]);
-    setInput("");
-  };
-  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" || e.key === "," || e.key === ";") {
-      e.preventDefault();
-      add(input);
-    } else if (e.key === "Backspace" && !input && (values || []).length) {
-      setValues(values.slice(0, -1));
-    }
-  };
-  const onPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
-    const text =
-      e.clipboardData && e.clipboardData.getData
-        ? e.clipboardData.getData("text")
-        : "";
-    // IMPORTANT: escapement en chaîne pour éviter toute casse du littéral
-    const TEST_RE = new RegExp("[,;\\n]");
-    const SPLIT_RE = new RegExp("[ ,;\\n]+");
-    const CRLF_RE = new RegExp("\\r\\n?", "g");
-    if (text && TEST_RE.test(text)) {
-      e.preventDefault();
-      const normalized = text.replace(CRLF_RE, "\n");
-      normalized
-        .split(SPLIT_RE)
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .forEach(add);
-    }
-  };
-  return (
-    <div>
-      <label className="text-sm text-gray-700">{label}</label>
-      <div className="mt-1 flex flex-wrap gap-2 border rounded-xl p-2">
-        {(values || []).map((v, i) => (
-          <span
-            key={i}
-            className="px-2 py-1 rounded-full bg-gray-100 text-sm flex items-center gap-2"
-          >
-            {v}
-            <button
-              onClick={() => setValues(values.filter((_, idx) => idx !== i))}
-              className="text-gray-500"
-            >
-              ×
-            </button>
-          </span>
-        ))}
-        <input
-          ref={ref}
-          className="flex-1 min-w-[120px] outline-none"
-          value={input}
-          placeholder={placeholder}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={onKeyDown}
-          onPaste={onPaste}
-        />
-        <button
-          className="px-2 py-1 rounded-xl bg-blue-100 text-sm"
-          onClick={() => add(input)}
-        >
-          Ajouter
-        </button>
-      </div>
-    </div>
-  );
-}
+    <!-- Ton appli (TypeScript + JSX), transformée par Babel côté client -->
+    <script type="text/babel" data-presets="typescript,react">
+      const { useMemo, useState, useEffect, useRef } = React;
+      const { jsPDF } = window.jspdf;
 
-// Types
-type TPyramideType = "p2" | "p3" | "p4" | "p5" | "libre";
-const LABEL: Record<TPyramideType, string> = {
-  p2: "Pyramide à 2",
-  p3: "Pyramide à 3",
-  p4: "Pyramide à 4",
-  p5: "Pyramide à 5",
-  libre: "Pyramide libre",
-};
-const NEED: Partial<Record<TPyramideType, number>> = { p2: 2, p3: 3, p4: 4, p5: 5 };
+      // --- Helpers ---
+      const uid = () => Math.random().toString(36).slice(2, 10);
+      const STORAGE_KEY = "acro_jugements_v9";
 
-export default function App() {
-  type Eleve = { name: string; note: number; avis: string };
-  type Pyramide = {
-    id: string;
-    type: TPyramideType;
-    securite: Record<string, boolean>;
-    tenue: "non" | "oui";
-  };
-  type Eval = {
-    id: string;
-    date: string;
-    observerList: string[];
-    groupeList: string[];
-    pyramides: Pyramide[]; // liste issue du plan
-    composition: number;
-    entree: number;
-    sortie: number;
-    originalite: number; // critères d'ensemble
-    noteFinale: number;
-    commentaire: string;
-    eleves: Eleve[];
-  };
-
-  const [evals, setEvals] = useState<Eval[]>([]);
-  const [defaultObservers, setDefaultObservers] = useState<string[]>([]);
-  const [defaultGroup, setDefaultGroup] = useState<string[]>([]);
-  const [securitePoints] = useState<string[]>(DEFAULT_SECURITE_POINTS);
-  const [bigUI, setBigUI] = useState(true);
-
-  // Plan compteurs
-  const [counts, setCounts] = useState<{
-    p2: number;
-    p3: number;
-    p4: number;
-    p5: number;
-    libre: number;
-  }>({ p2: 0, p3: 0, p4: 0, p5: 0, libre: 0 });
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-
-  // Load
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const p = JSON.parse(raw);
-        setEvals(p.evals || []);
-        setDefaultObservers(p.defaultObservers || []);
-        setDefaultGroup(p.defaultGroup || []);
-        setCounts(p.counts || { p2: 0, p3: 0, p4: 0, p5: 0, libre: 0 });
-        setSelectedId(p.selectedId || null);
-      }
-    } catch {}
-  }, []);
-  useEffect(() => {
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({ evals, defaultObservers, defaultGroup, counts, selectedId })
-    );
-  }, [evals, defaultObservers, defaultGroup, counts, selectedId]);
-
-  const makePyramide = (t: TPyramideType): Pyramide => ({
-    id: uid(),
-    type: t,
-    securite: Object.fromEntries(securitePoints.map((s) => [s, false])) as Record<
-      string,
-      boolean
-    >,
-    tenue: "non",
-  });
-
-  // Ajouter UNE COMPOSITION (enchaînement) selon les compteurs actuels
-  const addComposition = () => {
-    const list: TPyramideType[] = [
-      ...Array.from({ length: counts.p2 }, () => "p2" as TPyramideType),
-      ...Array.from({ length: counts.p3 }, () => "p3" as TPyramideType),
-      ...Array.from({ length: counts.p4 }, () => "p4" as TPyramideType),
-      ...Array.from({ length: counts.p5 }, () => "p5" as TPyramideType),
-      ...Array.from({ length: counts.libre }, () => "libre" as TPyramideType),
-    ];
-    const pyramides = list.map(makePyramide);
-    const n: Eval = {
-      id: uid(),
-      date: new Date().toISOString(),
-      observerList: defaultObservers,
-      groupeList: defaultGroup,
-      pyramides,
-      composition: 0,
-      entree: 0,
-      sortie: 0,
-      originalite: 0,
-      noteFinale: 0,
-      commentaire: "",
-      eleves: syncEleves([], defaultGroup),
-    };
-    setEvals((prev) => [n, ...prev]);
-    setSelectedId(n.id);
-  };
-
-  const updateEval = (id: string, patch: Partial<Eval>) =>
-    setEvals((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)));
-  const selectedEval = useMemo(
-    () => (evals || []).find((e) => e.id === selectedId) || null,
-    [evals, selectedId]
-  );
-
-  // Sync groupe→élèves sur la fiche sélectionnée
-  const setGroupeForSelected = (vals: string[]) => {
-    if (!selectedEval) return;
-    updateEval(selectedEval.id, {
-      groupeList: vals,
-      eleves: syncEleves(selectedEval.eleves || [], vals),
-    });
-  };
-
-  // PDF
-  const exportPDF = () => {
-    const doc = new jsPDF({ unit: "pt", format: "a4" });
-    let y = 40;
-    const maxW = 535;
-    const newLine = (dy = 16) => {
-      y += dy;
-      if (y > 780) {
-        doc.addPage();
-        y = 40;
-      }
-    };
-    doc.setFontSize(14);
-    doc.text("AcroSport — Observations", 40, y);
-    newLine(24);
-    doc.setFontSize(11);
-
-    (evals || []).forEach((e, i) => {
-      const observers = (e.observerList || []).join(", ") || "(observateurs)";
-      const groupe = (e.groupeList || []).join(", ") || "(groupe)";
-      doc.text(`${i + 1}. ${groupe} (Obs: ${observers})`, 40, y);
-      newLine();
-
-      // Pyramides
-      if ((e.pyramides || []).length) {
-        doc.text("Pyramides de l'enchaînement:", 40, y);
-        newLine();
-        (e.pyramides || []).forEach((p, idx) => {
-          const sec = Object.entries(p.securite)
-            .map(([k, v]) => (v ? "✅" : "❌") + " " + k)
-            .join(" • ");
-          doc
-            .splitTextToSize(
-              `${idx + 1}. ${LABEL[p.type]} — Tenue: ${p.tenue.toUpperCase()} — Sécurité: ${sec}`,
-              maxW
-            )
-            .forEach((ln) => {
-              doc.text(ln, 40, y);
-              newLine(14);
-            });
-        });
-        newLine(6);
-      }
-
-      // Critères d'ensemble
-      doc.text(
-        `Ensemble — Composition: ${e.composition}/5 | Entrée: ${e.entree}/5 | Sortie: ${e.sortie}/5 | Originalité: ${e.originalite}/5`,
-        40,
-        y
-      );
-      newLine();
-      doc.text(`Note finale /20: ${e.noteFinale}`, 40, y);
-      newLine(8);
-      if (e.commentaire) {
-        doc
-          .splitTextToSize(`Commentaire: ${e.commentaire}`, maxW)
-          .forEach((ln) => {
-            doc.text(ln, 40, y);
-            newLine(14);
-          });
-      }
-      newLine(8);
-
-      // Éval individuelle
-      if ((e.eleves || []).length) {
-        doc.setFontSize(12);
-        doc.text("Évaluation individuelle", 40, y);
-        newLine();
-        doc.setFontSize(11);
-        (e.eleves || []).forEach((el) => {
-          doc.text(`• ${el.name} — Note: ${el.note || 0}/20`, 40, y);
-          newLine();
-          if (el.avis) {
-            doc
-              .splitTextToSize(`   Avis: ${el.avis}`, maxW)
-              .forEach((ln) => {
-                doc.text(ln, 40, y);
-                newLine(14);
-              });
-          }
-        });
-        newLine(10);
-      }
-
-      if (y > 760) {
-        doc.addPage();
-        y = 40;
-      }
-    });
-
-    // Footer
-    const pageCount = doc.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(9);
-      doc.setTextColor(120);
-      doc.text(
-        `AcroSport — Export du ${new Date().toLocaleDateString()}  •  Page ${i}/${pageCount}`,
-        40,
-        820
-      );
-      doc.setTextColor(0);
-    }
-
-    doc.save(`acro_eval_${new Date().toISOString().slice(0, 10)}.pdf`);
-  };
-
-  // CSV
-  const exportCSV = () => {
-    const headers = [
-      "index",
-      "date",
-      "observateurs",
-      "groupe",
-      "p2",
-      "p3",
-      "p4",
-      "p5",
-      "libre",
-      "total_pyramides",
-      "composition",
-      "entree",
-      "sortie",
-      "originalite",
-      "noteFinale",
-      ...securitePoints.map((s) => `SECURITE:${s} (OK/Total)`), // résumé agrégé
-      "eleves:noms",
-      "eleves:notes",
-      "eleves:avis",
-    ];
-
-    const rows = (evals || []).map((e, idx) => {
-      const countsRow = {
-        p2: 0,
-        p3: 0,
-        p4: 0,
-        p5: 0,
-        libre: 0,
-      } as Record<TPyramideType, number>;
-      const secAgg: Record<string, { ok: number; tot: number }> = Object.fromEntries(
-        securitePoints.map((s) => [s, { ok: 0, tot: 0 }])
-      );
-      (e.pyramides || []).forEach((p) => {
-        countsRow[p.type]++;
-        securitePoints.forEach((s) => {
-          secAgg[s].tot++;
-          if (p.securite[s]) secAgg[s].ok++;
-        });
-      });
-      const n = (e.eleves || []).map((el) => el.name).join("|");
-      const notes = (e.eleves || []).map((el) => el.note ?? 0).join("|");
-      const avis = (e.eleves || [])
-        .map((el) => (el.avis || "").replace(/[\r\n]+/g, " "))
-        .join("|");
-      return [
-        idx + 1,
-        e.date,
-        (e.observerList || []).join("|"),
-        (e.groupeList || []).join("|"),
-        countsRow.p2,
-        countsRow.p3,
-        countsRow.p4,
-        countsRow.p5,
-        countsRow.libre,
-        (e.pyramides || []).length,
-        e.composition,
-        e.entree,
-        e.sortie,
-        e.originalite,
-        e.noteFinale,
-        ...securitePoints.map((s) => `${secAgg[s].ok}/${secAgg[s].tot}`),
-        n,
-        notes,
-        avis,
+      const DEFAULT_SECURITE_POINTS = [
+        "Rôles définis (porteurs / voltige)",
+        "Prises sûres et alignements",
+        "Montée contrôlée",
+        "Tenue sans danger",
+        "Descente sécurisée",
       ];
-    });
 
-    const csv = [headers.join(";"), ...rows.map((r) => r.join(";"))].join("\n");
-    const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
-    triggerDownload(blob, `acro_eval_${new Date().toISOString().slice(0, 10)}.csv`);
-  };
+      // Téléchargements fiables (iOS/Safari compris)
+      function triggerDownload(blob, filename) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.setAttribute("download", filename);
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 0);
+      }
 
-  const exportJSON = () => {
-    const blob = new Blob(
-      [
-        JSON.stringify({ evals, defaultObservers, defaultGroup, counts }, null, 2),
-      ],
-      { type: "application/json" }
-    );
-    triggerDownload(blob, `acro_eval_${new Date().toISOString().slice(0, 10)}.json`);
-  };
+      // Synchronise la liste d'élèves avec les prénoms du groupe
+      function syncEleves(prev = [], names = []) {
+        const by = new Map(prev.map(e => [e.name, e]));
+        return names.map(n => by.get(n) || ({ name: n, note: 0, avis: "" }));
+      }
 
-  // Résumé
-  const totalCompos = evals.length;
+      // Champ multi-valeurs simple (chips)
+      function ChipInput({ label, values, setValues, placeholder }) {
+        const [input, setInput] = useState("");
+        const ref = useRef(null);
 
-  // Auto-tests rapides pour éviter les régressions de parsing
-  useEffect(() => {
-    try {
-      const pasted = "Léo, Inès;Sara\nNoah";
-      const parts = pasted.replace(/\r\n?/g, "\n").split(/[ ,;\n]+/).map(s=>s.trim()).filter(Boolean);
-      console.assert(parts.length === 4, 'Split collé noms échoué', parts);
-    } catch (e) {
-      console.warn('Self-test failed', e);
-    }
-  }, []);
-
-  return (
-    <div className={`min-h-screen ${bigUI ? "text-[18px]" : "text-base"} bg-gray-50`}>
-      <header className="sticky top-0 bg-white border-b shadow-sm p-3 flex justify-between items-center">
-        <h1 className="font-bold text-lg">🤸‍♀️ AcroSport — Observateur / Juge</h1>
-        <div className="flex gap-2">
-          <button className="bg-green-600 text-white rounded-2xl px-3 py-2" onClick={exportPDF}>
-            📄 PDF
-          </button>
-          <button className="bg-blue-600 text-white rounded-2xl px-3 py-2" onClick={exportCSV}>
-            ⬇️ CSV
-          </button>
-          <button className="bg-purple-600 text-white rounded-2xl px-3 py-2" onClick={exportJSON}>
-            💾 JSON
-          </button>
-          <button
-            className="bg-yellow-400 rounded-2xl px-3 py-2"
-            onClick={() => setBigUI(!bigUI)}
-          >
-            {bigUI ? "🔍 UI XL" : "🔎 Normal"}
-          </button>
-        </div>
-      </header>
-
-      <main className="max-w-5xl mx-auto p-4 space-y-5">
-        {/* 1) Observateurs & Groupe par défaut */}
-        <section className="grid md:grid-cols-2 gap-4">
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3">
-            <ChipInput
-              label="👀 Observateur·rice(s)"
-              values={defaultObservers}
-              setValues={setDefaultObservers}
-              placeholder="ex. Ambre, Léo…"
-            />
-          </div>
-          <div className="rounded-2xl border border-sky-200 bg-sky-50 p-3">
-            <ChipInput
-              label="👥 Groupe observé — par défaut (appliqué aux nouvelles compositions)"
-              values={defaultGroup}
-              setValues={setDefaultGroup}
-              placeholder="ex. Inès, Léo…"
-            />
-            <p className="text-xs text-sky-700 mt-2">
-              Tu pourras ajuster par composition ensuite.
-            </p>
-          </div>
-        </section>
-
-        {/* 2) Plan d'enchaînement → Ajoute UNE composition */}
-        <section className="bg-white rounded-2xl shadow p-4 space-y-3">
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <div className="font-semibold">🗓️ Plan d'enchaînement (pour la prochaine composition)</div>
-            <div className="text-sm text-gray-500">Compositions: {totalCompos}</div>
-          </div>
-          <div className="grid sm:grid-cols-5 gap-3">
-            {(
-              [
-                ["p2", "Pyramide à 2"],
-                ["p3", "Pyramide à 3"],
-                ["p4", "Pyramide à 4"],
-                ["p5", "Pyramide à 5"],
-                ["libre", "Pyramide libre"],
-              ] as Array<[TPyramideType, string]>
-            ).map(([k, label]) => (
-              <div key={k} className="bg-gray-50 rounded-xl p-3">
-                <label className="text-sm">{label} ×</label>
-                <input
-                  type="number"
-                  min={0}
-                  className="border rounded-xl px-3 py-2 w-full mt-1"
-                  value={(counts as any)[k]}
-                  onChange={(e) =>
-                    setCounts({ ...counts, [k]: Math.max(0, Number(e.target.value) || 0) } as any)
-                  }
-                />
-              </div>
-            ))}
-          </div>
-          <div className="flex gap-2">
-            <button className="bg-sky-600 text-white rounded-xl px-3 py-2" onClick={addComposition}>
-              ➕ Ajouter la composition
-            </button>
-            <button
-              className="bg-gray-200 rounded-xl px-3 py-2"
-              onClick={() => {
-                setCounts({ p2: 0, p3: 0, p4: 0, p5: 0, libre: 0 });
-              }}
-            >
-              Réinitialiser les compteurs
-            </button>
-          </div>
-        </section>
-
-        {/* 3) Sélection de composition */}
-        <section className="bg-white rounded-2xl shadow p-4 space-y-3">
-          <div className="font-semibold">🎯 Sélection</div>
-          {evals.length ? (
-            <div className="flex flex-wrap gap-2">
-              {evals.map((ev, idx) => {
-                const cnt = { p2: 0, p3: 0, p4: 0, p5: 0, libre: 0 } as Record<
-                  TPyramideType,
-                  number
-                >;
-                (ev.pyramides || []).forEach((p) => {
-                  cnt[p.type]++;
-                });
-                return (
+        const add = (v) => {
+          const t = (v || "").trim();
+          if (!t) return;
+          if ((values || []).includes(t)) return;
+          setValues([...(values || []), t]);
+          setInput("");
+        };
+        const onKeyDown = (e) => {
+          if (e.key === "Enter" || e.key === "," || e.key === ";") {
+            e.preventDefault();
+            add(input);
+          } else if (e.key === "Backspace" && !input && (values || []).length) {
+            setValues(values.slice(0, -1));
+          }
+        };
+        const onPaste = (e) => {
+          const text =
+            e.clipboardData && e.clipboardData.getData
+              ? e.clipboardData.getData("text")
+              : "";
+          const TEST_RE = new RegExp("[,;\\n]");
+          const SPLIT_RE = new RegExp("[ ,;\\n]+");
+          const CRLF_RE = new RegExp("\\r\\n?", "g");
+          if (text && TEST_RE.test(text)) {
+            e.preventDefault();
+            const normalized = text.replace(CRLF_RE, "\n");
+            normalized
+              .split(SPLIT_RE)
+              .map((s) => s.trim())
+              .filter(Boolean)
+              .forEach(add);
+          }
+        };
+        return (
+          <div>
+            <label className="text-sm text-gray-700">{label}</label>
+            <div className="mt-1 flex flex-wrap gap-2 border rounded-xl p-2 bg-white">
+              {(values || []).map((v, i) => (
+                <span
+                  key={i}
+                  className="px-2 py-1 rounded-full bg-gray-100 text-sm flex items-center gap-2"
+                >
+                  {v}
                   <button
-                    key={ev.id}
-                    className={`px-3 py-2 rounded-xl border ${
-                      selectedId === ev.id ? "bg-green-600 text-white" : "bg-gray-50"
-                    }`}
-                    onClick={() => setSelectedId(ev.id)}
+                    onClick={() => setValues(values.filter((_, idx) => idx !== i))}
+                    className="text-gray-500"
                   >
-                    {idx + 1}. P2:{cnt.p2} P3:{cnt.p3} P4:{cnt.p4} P5:{cnt.p5} L:{cnt.libre}
+                    ×
                   </button>
-                );
-              })}
-            </div>
-          ) : (
-            <p className="text-sm text-gray-500">
-              Ajoute une composition avec le plan ci‑dessus.
-            </p>
-          )}
-        </section>
-
-        {/* 4) Fiche sélectionnée */}
-        {selectedEval && (
-          <section className="bg-white rounded-2xl shadow p-4 space-y-5">
-            <div className="flex items-center justify-between">
-              <div className="font-semibold">
-                Composition #{evals.findIndex((x) => x.id === selectedId) + 1}
-              </div>
-              <div className="text-sm text-gray-500">
-                Groupe: {(selectedEval.groupeList || []).join(", ") || "(à compléter)"}
-              </div>
-            </div>
-
-            {/* Groupe (édition rapide) */}
-            <div className="rounded-2xl border border-sky-200 bg-sky-50 p-3">
-              <ChipInput
-                label={`👥 Groupe (conseillé: ${(() => {
-                  const first = selectedEval.pyramides[0]?.type;
-                  return first && NEED[first as TPyramideType]
-                    ? NEED[first as TPyramideType]
-                    : "—";
-                })()}+ élèves min pour la 1ère pyramide)`}
-                values={selectedEval.groupeList || []}
-                setValues={setGroupeForSelected}
-                placeholder="ex. Inès, Léo…"
+                </span>
+              ))}
+              <input
+                ref={ref}
+                className="flex-1 min-w-[120px] outline-none"
+                value={input}
+                placeholder={placeholder}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={onKeyDown}
+                onPaste={onPaste}
               />
+              <button
+                className="px-2 py-1 rounded-xl bg-blue-100 text-sm"
+                onClick={() => add(input)}
+              >
+                Ajouter
+              </button>
             </div>
+          </div>
+        );
+      }
 
-            {/* Liste des pyramides à évaluer */}
-            <div>
-              <span className="font-semibold">🧱 Pyramides de l'enchaînement</span>
-              {selectedEval.pyramides.length === 0 && (
-                <p className="text-sm text-gray-500">
-                  Aucune pyramide dans cette composition.
-                </p>
+      // Types “runtime”
+      const LABEL = {
+        p2: "Pyramide à 2",
+        p3: "Pyramide à 3",
+        p4: "Pyramide à 4",
+        p5: "Pyramide à 5",
+        libre: "Pyramide libre",
+      };
+      const NEED = { p2: 2, p3: 3, p4: 4, p5: 5 };
+      const COLORS = {
+        p2: "bg-sky-100 border-sky-200",
+        p3: "bg-emerald-100 border-emerald-200",
+        p4: "bg-amber-100 border-amber-200",
+        p5: "bg-fuchsia-100 border-fuchsia-200",
+        libre: "bg-gray-100 border-gray-200",
+      };
+
+      function App() {
+        const [evals, setEvals] = useState([]);
+        const [defaultObservers, setDefaultObservers] = useState([]);
+        const [defaultGroup, setDefaultGroup] = useState([]);
+        const [securitePoints] = useState(DEFAULT_SECURITE_POINTS);
+        const [bigUI, setBigUI] = useState(true);
+
+        // Flow pages
+        const [step, setStep] = useState("cover"); // "cover" | "setup" | "observe" | "ensemble" | "individuel"
+
+        // Plan compteurs
+        const [counts, setCounts] = useState({ p2:0,p3:0,p4:0,p5:0,libre:0 });
+        const [selectedId, setSelectedId] = useState(null);
+
+        // Load
+        useEffect(() => {
+          try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (raw) {
+              const p = JSON.parse(raw);
+              setEvals(p.evals || []);
+              setDefaultObservers(p.defaultObservers || []);
+              setDefaultGroup(p.defaultGroup || []);
+              setCounts(p.counts || { p2: 0, p3: 0, p4: 0, p5: 0, libre: 0 });
+              setSelectedId(p.selectedId || null);
+              setStep(p.step || "cover");
+            }
+          } catch {}
+        }, []);
+        useEffect(() => {
+          localStorage.setItem(
+            STORAGE_KEY,
+            JSON.stringify({ evals, defaultObservers, defaultGroup, counts, selectedId, step })
+          );
+        }, [evals, defaultObservers, defaultGroup, counts, selectedId, step]);
+
+        const makeSec = () =>
+          Object.fromEntries(securitePoints.map((s) => [s, "fragile"]));
+        const makePyramide = (t) => ({ id: uid(), type: t, securite: makeSec(), tenue: "non" });
+
+        // Ajouter UNE COMPOSITION et (option) démarrer l'observation
+        const addComposition = (goToObserve=false) => {
+          const list = [
+            ...Array.from({ length: counts.p2 }, () => "p2"),
+            ...Array.from({ length: counts.p3 }, () => "p3"),
+            ...Array.from({ length: counts.p4 }, () => "p4"),
+            ...Array.from({ length: counts.p5 }, () => "p5"),
+            ...Array.from({ length: counts.libre }, () => "libre"),
+          ];
+          const pyramides = list.map(makePyramide);
+          const n = {
+            id: uid(),
+            date: new Date().toISOString(),
+            observerList: defaultObservers,
+            groupeList: defaultGroup,
+            pyramides,
+            composition: 0,
+            entree: 0,
+            sortie: 0,
+            originalite: 0,
+            noteFinale: 0,
+            commentaire: "",
+            eleves: syncEleves([], defaultGroup),
+          };
+          setEvals((prev) => [n, ...prev]);
+          setSelectedId(n.id);
+          if (goToObserve) setStep("observe");
+        };
+
+        const updateEval = (id, patch) =>
+          setEvals((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)));
+        const selectedEval = React.useMemo(
+          () => (evals || []).find((e) => e.id === selectedId) || null,
+          [evals, selectedId]
+        );
+
+        const setGroupeForSelected = (vals) => {
+          if (!selectedEval) return;
+          updateEval(selectedEval.id, {
+            groupeList: vals,
+            eleves: syncEleves(selectedEval.eleves || [], vals),
+          });
+        };
+
+        // --- EXPORTS ---
+        const exportPDF = () => {
+          const doc = new jsPDF({ unit: "pt", format: "a4" });
+          let y = 40;
+          const maxW = 535;
+          const newLine = (dy = 16) => { y += dy; if (y > 780) { doc.addPage(); y = 40; } };
+          doc.setFontSize(14);
+          doc.text("AcroJuge — Observations", 40, y);
+          newLine(24);
+          doc.setFontSize(11);
+
+          (evals || []).forEach((e, i) => {
+            const observers = (e.observerList || []).join(", ") || "(observateurs)";
+            const groupe = (e.groupeList || []).join(", ") || "(groupe)";
+            doc.text(`${i + 1}. ${groupe} (Obs: ${observers})`, 40, y);
+            newLine();
+
+            if ((e.pyramides || []).length) {
+              doc.text("Pyramides de l'enchaînement:", 40, y);
+              newLine();
+              (e.pyramides || []).forEach((p, idx) => {
+                const sec = Object.entries(p.securite).map(([k, v]) => {
+                  const dot = v === "bon" ? "🟢" : v === "moyen" ? "🟡" : "🔴";
+                  return `${dot} ${k}`;
+                }).join(" • ");
+                doc
+                  .splitTextToSize(`${idx + 1}. ${LABEL[p.type]} — Tenue: ${p.tenue.toUpperCase()} — Sécurité: ${sec}`, maxW)
+                  .forEach((ln) => { doc.text(ln, 40, y); newLine(14); });
+              });
+              newLine(6);
+            }
+
+            doc.text(
+              `Ensemble — Composition: ${e.composition}/5 | Entrée: ${e.entree}/5 | Sortie: ${e.sortie}/5 | Originalité: ${e.originalite}/5`,
+              40, y
+            );
+            newLine();
+            doc.text(`Note finale /20: ${e.noteFinale}`, 40, y);
+            newLine(8);
+            if (e.commentaire) {
+              doc.splitTextToSize(`Commentaire: ${e.commentaire}`, maxW).forEach((ln) => { doc.text(ln, 40, y); newLine(14); });
+            }
+            newLine(8);
+
+            if ((e.eleves || []).length) {
+              doc.setFontSize(12);
+              doc.text("Évaluation individuelle", 40, y);
+              newLine();
+              doc.setFontSize(11);
+              (e.eleves || []).forEach((el) => {
+                doc.text(`• ${el.name} — Note: ${el.note || 0}/20`, 40, y);
+                newLine();
+                if (el.avis) {
+                  doc.splitTextToSize(`   Avis: ${el.avis}`, maxW).forEach((ln) => { doc.text(ln, 40, y); newLine(14); });
+                }
+              });
+              newLine(10);
+            }
+
+            if (y > 760) { doc.addPage(); y = 40; }
+          });
+
+          const pageCount = doc.getNumberOfPages();
+          for (let i = 1; i <= pageCount; i++) {
+            doc.setPage(i);
+            doc.setFontSize(9);
+            doc.setTextColor(120);
+            doc.text(`AcroJuge — Export du ${new Date().toLocaleDateString()}  •  Page ${i}/${pageCount}` , 40, 820);
+            doc.setTextColor(0);
+          }
+          doc.save(`acro_eval_${new Date().toISOString().slice(0, 10)}.pdf`);
+        };
+
+        const exportCSV = () => {
+          const headers = [
+            "index","date","observateurs","groupe",
+            "p2","p3","p4","p5","libre","total_pyramides",
+            "composition","entree","sortie","originalite","noteFinale",
+            ...securitePoints.map((s) => `SECURITE:${s} (F/M/B)`),
+            "eleves:noms","eleves:notes","eleves:avis",
+          ];
+          const rows = (evals || []).map((e, idx) => {
+            const countsRow = { p2:0,p3:0,p4:0,p5:0,libre:0 };
+            const secAgg = Object.fromEntries(securitePoints.map((s) => [s, { fragile:0, moyen:0, bon:0 }]));
+            (e.pyramides || []).forEach((p) => {
+              countsRow[p.type]++;
+              securitePoints.forEach((s) => { const lvl = p.securite[s]; if (lvl) secAgg[s][lvl]++; });
+            });
+            const n = (e.eleves || []).map((el) => el.name).join("|");
+            const notes = (e.eleves || []).map((el) => el.note ?? 0).join("|");
+            const avis = (e.eleves || []).map((el) => (el.avis || "").replace(/[\r\n]+/g, " ")).join("|");
+            return [
+              idx + 1, e.date, (e.observerList || []).join("|"), (e.groupeList || []).join("|"),
+              countsRow.p2, countsRow.p3, countsRow.p4, countsRow.p5, countsRow.libre,
+              (e.pyramides || []).length,
+              e.composition, e.entree, e.sortie, e.originalite, e.noteFinale,
+              ...securitePoints.map((s) => `${secAgg[s].fragile}/${secAgg[s].moyen}/${secAgg[s].bon}`),
+              n, notes, avis,
+            ];
+          });
+          const csv = [headers.join(";"), ...rows.map((r) => r.join(";"))].join("\n");
+          const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
+          triggerDownload(blob, `acro_eval_${new Date().toISOString().slice(0, 10)}.csv`);
+        };
+
+        const exportJSON = () => {
+          const blob = new Blob([ JSON.stringify({ evals, defaultObservers, defaultGroup, counts, step }, null, 2) ], { type: "application/json" });
+          triggerDownload(blob, `acro_eval_${new Date().toISOString().slice(0, 10)}.json`);
+        };
+
+        const totalCompos = evals.length;
+
+        const Nav = ({ prev, next }) => (
+          <div className="flex justify-between gap-3">
+            <button
+              className={`px-4 py-2 rounded-2xl ${prev ? 'bg-gray-200' : 'bg-gray-100 opacity-50 cursor-not-allowed'}`}
+              disabled={!prev}
+              onClick={() => prev && setStep(prev)}
+            >⬅️ Précédent</button>
+            <button
+              className={`px-4 py-2 rounded-2xl ${next ? 'bg-green-600 text-white' : 'bg-gray-100 opacity-50 cursor-not-allowed'}`}
+              disabled={!next}
+              onClick={() => next && setStep(next)}
+            >Suivant ➡️</button>
+          </div>
+        );
+
+        // Self-test parsing
+        useEffect(() => {
+          try {
+            const pasted = "Léo, Inès;Sara\nNoah";
+            const parts = pasted.replace(/\r\n?/g, "\n").split(/[ ,;\n]+/).map(s=>s.trim()).filter(Boolean);
+            console.assert(parts.length === 4, 'Split collé noms échoué', parts);
+          } catch (e) {
+            console.warn('Self-test failed', e);
+          }
+        }, []);
+
+        return (
+          <div className={`min-h-screen ${bigUI ? "text-[18px]" : "text-base"} bg-gray-50`}>
+            <header className="sticky top-0 bg-white border-b shadow-sm p-3 flex justify-between items-center z-10">
+              <h1 className="font-bold text-lg">🤸‍♀️ AcroJuge</h1>
+              <div className="flex gap-2">
+                <button className="bg-green-600 text-white rounded-2xl px-3 py-2" onClick={exportPDF}>📄 PDF</button>
+                <button className="bg-blue-600 text-white rounded-2xl px-3 py-2" onClick={exportCSV}>⬇️ CSV</button>
+                <button className="bg-purple-600 text-white rounded-2xl px-3 py-2" onClick={exportJSON}>💾 JSON</button>
+                <button className="bg-yellow-400 rounded-2xl px-3 py-2" onClick={()=>setBigUI(!bigUI)}>{bigUI? '🔍 UI XL':'🔎 Normal'}</button>
+              </div>
+            </header>
+
+            <main className="max-w-5xl mx-auto p-4 space-y-6">
+              {/* COVER */}
+              {step === 'cover' && (
+                <section className="bg-gradient-to-br from-sky-50 to-emerald-50 rounded-3xl border p-8 text-center space-y-6">
+                  <h2 className="text-2xl font-bold">Bienvenue 👋</h2>
+                  <p className="text-gray-700">Observe, juge et exporte les évaluations d'AcroSport facilement.</p>
+                  <div className="flex justify-center">
+                    <button className="px-6 py-3 rounded-2xl bg-green-600 text-white" onClick={()=>setStep('setup')}>Commencer</button>
+                  </div>
+                </section>
               )}
-              <div className="mt-2 grid md:grid-cols-2 gap-3">
-                {selectedEval.pyramides.map((p, idx) => (
-                  <div key={p.id} className="bg-gray-50 rounded-2xl p-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="font-medium">#{idx + 1} — {LABEL[p.type]}</div>
-                      <div className="text-xs text-gray-500">
-                        {NEED[p.type] ? `${NEED[p.type]} élèves` : "libre"}
-                      </div>
+
+              {/* SETUP */}
+              {step === 'setup' && (
+                <>
+                  <section className="grid md:grid-cols-2 gap-4">
+                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3">
+                      <ChipInput label="👀 Observateur·rice(s)" values={defaultObservers} setValues={setDefaultObservers} placeholder="ex. Ambre, Léo…" />
                     </div>
-                    {/* Sécurité */}
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm">🔒 Sécurité</span>
-                        <div className="flex gap-2">
-                          <button
-                            className="bg-green-100 rounded-xl px-2 py-1"
-                            onClick={() => {
-                              const securite = Object.fromEntries(
-                                securitePoints.map((s) => [s, true])
-                              ) as Record<string, boolean>;
-                              const updated = selectedEval.pyramides.map((x) =>
-                                x.id === p.id ? { ...x, securite } : x
+                    <div className="rounded-2xl border border-sky-200 bg-sky-50 p-3">
+                      <ChipInput label="👥 Groupe observé (par défaut)" values={defaultGroup} setValues={setDefaultGroup} placeholder="ex. Inès, Léo…" />
+                      <p className="text-xs text-sky-700 mt-2">Ces prénoms seront utilisés pour l'évaluation individuelle.</p>
+                    </div>
+                  </section>
+
+                  <section className="bg-white rounded-2xl shadow p-4 space-y-3">
+                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                      <div className="font-semibold">🗓️ Plan d'enchaînement</div>
+                      <div className="text-sm text-gray-500">Compositions: {totalCompos}</div>
+                    </div>
+                    <div className="grid sm:grid-cols-5 gap-3">
+                      {[
+                        ['p2','Pyramide à 2'],
+                        ['p3','Pyramide à 3'],
+                        ['p4','Pyramide à 4'],
+                        ['p5','Pyramide à 5'],
+                        ['libre','Pyramide libre'],
+                      ].map(([k,label]) => (
+                        <div key={k} className={`rounded-xl p-3 border ${COLORS[k]}`}>
+                          <label className="text-sm font-medium">{label} ×</label>
+                          <input type="number" min={0} className="border rounded-xl px-3 py-2 w-full mt-1" value={counts[k]}
+                            onChange={e=> setCounts({ ...counts, [k]: Math.max(0, Number(e.target.value)||0) })} />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex gap-2 flex-wrap">
+                      <button className="bg-sky-600 text-white rounded-xl px-3 py-2" onClick={()=>addComposition(false)}>➕ Ajouter la composition</button>
+                      <button className="bg-emerald-600 text-white rounded-xl px-3 py-2" onClick={()=>addComposition(true)}>▶️ Démarrer l'observation</button>
+                      <button className="bg-gray-200 rounded-xl px-3 py-2" onClick={()=> setCounts({p2:0,p3:0,p4:0,p5:0,libre:0})}>Réinitialiser</button>
+                    </div>
+                  </section>
+
+                  <Nav prev={'cover'} next={'observe'} />
+                </>
+              )}
+
+              {/* OBSERVE */}
+              {step === 'observe' && selectedEval && (
+                <section className="bg-white rounded-2xl shadow p-4 space-y-5">
+                  <div className="flex items-center justify-between">
+                    <div className="font-semibold">Observation — {selectedEval.groupeList.join(', ') || 'groupe'}</div>
+                    <div className="text-sm text-gray-500">{(selectedEval.pyramides||[]).length} pyramide(s)</div>
+                  </div>
+
+                  <div className="grid md:grid-cols-2 gap-3">
+                    {selectedEval.pyramides.map((p, idx) => (
+                      <div key={p.id} className={`rounded-2xl p-3 border ${COLORS[p.type]} space-y-3`}>
+                        <div className="flex items-center justify-between">
+                          <div className="font-medium">#{idx+1} — {LABEL[p.type]}</div>
+                          <div className="text-xs">{NEED[p.type]? `${NEED[p.type]} élèves` : 'libre'}</div>
+                        </div>
+
+                        {/* Tenue */}
+                        <div>
+                          <span className="text-sm font-semibold">⏱️ Tenue 3s</span>
+                          <div className="grid grid-cols-2 gap-2 mt-2">
+                            {(['non','oui']).map(t => (
+                              <button key={t} className={`px-3 py-2 rounded-xl font-semibold ${p.tenue===t? 'bg-green-600 text-white':'bg-gray-200'}`}
+                                onClick={()=>{
+                                  const updated = selectedEval.pyramides.map(x=> x.id===p.id? { ...x, tenue:t } : x);
+                                  updateEval(selectedEval.id, { pyramides: updated });
+                                }}>{t.toUpperCase()}</button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Sécurité F/M/B */}
+                        <div>
+                          <div className="text-sm font-semibold mb-1">🔒 Sécurité</div>
+                          <div className="space-y-2">
+                            {securitePoints.map((crit, i)=>{
+                              const lvl = p.securite[crit] || 'fragile';
+                              const setLvl = (val) => {
+                                const updated = selectedEval.pyramides.map(x=> x.id===p.id? { ...x, securite: { ...x.securite, [crit]: val } } : x);
+                                updateEval(selectedEval.id, { pyramides: updated });
+                              };
+                              return (
+                                <div key={i} className="bg-white rounded-xl p-2">
+                                  <div className="text-sm mb-1">{crit}</div>
+                                  <div className="grid grid-cols-3 gap-2">
+                                    {[['fragile','🔴 Fragile'], ['moyen','🟡 Moyen'], ['bon','🟢 Bon']].map(([k,l])=> (
+                                      <button key={k} className={`px-2 py-2 rounded-xl ${lvl===k? 'ring-2 ring-offset-2 ring-black bg-gray-100':'bg-gray-200'}`} onClick={()=>setLvl(k)}>{l}</button>
+                                    ))}
+                                  </div>
+                                </div>
                               );
-                              updateEval(selectedEval.id, { pyramides: updated });
-                            }}
-                          >
-                            Tout OK
-                          </button>
-                          <button
-                            className="bg-red-100 rounded-xl px-2 py-1"
-                            onClick={() => {
-                              const securite = Object.fromEntries(
-                                securitePoints.map((s) => [s, false])
-                              ) as Record<string, boolean>;
-                              const updated = selectedEval.pyramides.map((x) =>
-                                x.id === p.id ? { ...x, securite } : x
-                              );
-                              updateEval(selectedEval.id, { pyramides: updated });
-                            }}
-                          >
-                            Tout Non
-                          </button>
+                            })}
+                          </div>
                         </div>
                       </div>
-                      <div className="grid sm:grid-cols-2 gap-2">
-                        {securitePoints.map((s, i) => (
-                          <label
-                            key={i}
-                            className="flex gap-3 items-center bg-white rounded-xl p-2"
-                          >
-                            <input
-                              type="checkbox"
-                              className="w-6 h-6"
-                              checked={!!p.securite[s]}
-                              onChange={(ev) => {
-                                const updated = selectedEval.pyramides.map((x) =>
-                                  x.id === p.id
-                                    ? { ...x, securite: { ...x.securite, [s]: ev.target.checked } }
-                                    : x
-                                );
-                                updateEval(selectedEval.id, { pyramides: updated });
-                              }}
-                            />
-                            <span className="text-sm">{s}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                    {/* Tenue */}
-                    <div>
-                      <span className="text-sm">⏱️ Tenue</span>
-                      <div className="grid grid-cols-2 gap-2 mt-2">
-                        {(["non", "oui"] as const).map((t) => (
-                          <button
-                            key={t}
-                            className={`px-3 py-2 rounded-xl font-semibold ${
-                              p.tenue === t ? "bg-green-600 text-white" : "bg-gray-200"
-                            }`}
-                            onClick={() => {
-                              const updated = selectedEval.pyramides.map((x) =>
-                                x.id === p.id ? { ...x, tenue: t } : x
-                              );
-                              updateEval(selectedEval.id, { pyramides: updated });
-                            }}
-                          >
-                            {t.toUpperCase()}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </div>
 
-            {/* Critères d'ensemble (0–5) */}
-            <div>
-              <span className="font-semibold">📝 Évaluation de l'ensemble (0–5)</span>
-              <div className="grid sm:grid-cols-2 gap-3 mt-2">
-                {(
-                  [
-                    ["composition", "Composition"],
-                    ["entree", "Entrée"],
-                    ["sortie", "Sortie"],
-                    ["originalite", "Originalité"],
-                  ] as Array<[
-                    keyof Pick<Eval, "composition" | "entree" | "sortie" | "originalite">,
-                    string
-                  ]>
-                ).map(([key, label]) => (
-                  <div key={key} className="bg-gray-50 rounded-xl p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm">{label}</span>
-                      <div className="flex gap-2">
-                        <button
-                          className="bg-gray-100 rounded-xl px-2"
-                          onClick={() =>
-                            updateEval(selectedEval.id, {
-                              [key]: Math.max(0, (selectedEval as any)[key] - 1),
-                            } as any)
-                          }
-                        >
-                          −
-                        </button>
-                        <button
-                          className="bg-gray-100 rounded-xl px-2"
-                          onClick={() =>
-                            updateEval(selectedEval.id, {
-                              [key]: Math.min(5, (selectedEval as any)[key] + 1),
-                            } as any)
-                          }
-                        >
-                          +
-                        </button>
-                      </div>
-                    </div>
-                    <input
-                      type="range"
-                      min={0}
-                      max={5}
-                      step={1}
-                      value={(selectedEval as any)[key] || 0}
-                      onChange={(ev) =>
-                        updateEval(selectedEval.id, {
-                          [key]: Number(ev.target.value),
-                        } as any)
-                      }
-                      className="w-full"
-                    />
-                    <div className="text-sm">Score : {(selectedEval as any)[key] || 0}/5</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Commentaire + Note finale */}
-            <div className="grid md:grid-cols-2 gap-3">
-              <div>
-                <span className="font-semibold">🗒️ Commentaire global</span>
-                <textarea
-                  className="mt-2 w-full border rounded-xl p-2 min-h-[80px]"
-                  value={selectedEval.commentaire || ""}
-                  onChange={(e) =>
-                    updateEval(selectedEval.id, { commentaire: e.target.value })
-                  }
-                />
-              </div>
-              <div>
-                <span className="font-semibold">🏁 Note finale /20</span>
-                <input
-                  type="number"
-                  min={0}
-                  max={20}
-                  value={selectedEval.noteFinale}
-                  onChange={(ev) =>
-                    updateEval(selectedEval.id, { noteFinale: Number(ev.target.value) })
-                  }
-                  className="border rounded-xl px-3 py-2 w-24 ml-2"
-                />
-              </div>
-            </div>
-
-            {/* Évaluation individuelle des élèves */}
-            <div>
-              <span className="font-semibold">👤 Évaluation individuelle des élèves</span>
-              {(!selectedEval.groupeList || selectedEval.groupeList.length === 0) && (
-                <p className="text-sm text-gray-500 mt-1">
-                  Ajoute d'abord les prénoms du groupe (bloc en haut).
-                </p>
+                  <Nav prev={'setup'} next={'ensemble'} />
+                </section>
               )}
-              {(selectedEval.eleves || []).map((el, idx) => (
-                <div
-                  key={el.name + idx}
-                  className="mt-2 grid md:grid-cols-3 gap-2 items-start bg-gray-50 rounded-xl p-3"
-                >
-                  <div className="font-medium">{el.name}</div>
-                  <div>
-                    <label className="text-sm">Note /20</label>
-                    <input
-                      type="number"
-                      min={0}
-                      max={20}
-                      value={el.note || 0}
-                      onChange={(ev) => {
-                        const arr = [...(selectedEval.eleves || [])];
-                        arr[idx] = { ...arr[idx], note: Number(ev.target.value) };
-                        updateEval(selectedEval.id, { eleves: arr });
-                      }}
-                      className="border rounded-xl px-3 py-2 w-24 ml-2"
-                    />
+
+              {/* ENSEMBLE */}
+              {step === 'ensemble' && selectedEval && (
+                <section className="bg-white rounded-2xl shadow p-4 space-y-5">
+                  <div className="font-semibold">📝 Évaluation de l'ensemble (0–5)</div>
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    {[ ['composition','Composition'], ['entree','Entrée'], ['sortie','Sortie'], ['originalite','Originalité'] ].map(([key,label]) => (
+                      <div key={key} className="bg-gray-50 rounded-xl p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm">{label}</span>
+                          <div className="flex gap-2">
+                            <button className="bg-gray-100 rounded-xl px-2" onClick={()=> updateEval(selectedEval.id, { [key]: Math.max(0,(selectedEval)[key]-1) })}>−</button>
+                            <button className="bg-gray-100 rounded-xl px-2" onClick={()=> updateEval(selectedEval.id, { [key]: Math.min(5,(selectedEval)[key]+1) })}>+</button>
+                          </div>
+                        </div>
+                        <input type="range" min={0} max={5} step={1} value={(selectedEval)[key]||0} onChange={ev=> updateEval(selectedEval.id, { [key]: Number(ev.target.value) }) } className="w-full"/>
+                        <div className="text-sm">Score : {(selectedEval)[key]||0}/5</div>
+                      </div>
+                    ))}
                   </div>
-                  <div className="md:col-span-2">
-                    <label className="text-sm">Avis</label>
-                    <textarea
-                      className="mt-1 w-full border rounded-xl p-2 min-h-[60px]"
-                      value={el.avis || ""}
-                      onChange={(ev) => {
-                        const arr = [...(selectedEval.eleves || [])];
-                        arr[idx] = { ...arr[idx], avis: ev.target.value };
-                        updateEval(selectedEval.id, { eleves: arr });
-                      }}
-                    />
+
+                  <div className="grid md:grid-cols-2 gap-3">
+                    <div>
+                      <span className="font-semibold">🗒️ Commentaire global</span>
+                      <textarea className="mt-2 w-full border rounded-xl p-2 min-h-[80px]" value={selectedEval.commentaire||''} onChange={e=> updateEval(selectedEval.id, { commentaire: e.target.value }) }/>
+                    </div>
+                    <div>
+                      <span className="font-semibold">🏁 Note finale /20</span>
+                      <input type="number" min={0} max={20} value={selectedEval.noteFinale} onChange={ev=> updateEval(selectedEval.id, { noteFinale: Number(ev.target.value) }) } className="border rounded-xl px-3 py-2 w-24 ml-2"/>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-      </main>
-    </div>
-  );
-}
+
+                  <Nav prev={'observe'} next={'individuel'} />
+                </section>
+              )}
+
+              {/* INDIVIDUEL */}
+              {step === 'individuel' && selectedEval && (
+                <section className="bg-white rounded-2xl shadow p-4 space-y-5">
+                  <div className="font-semibold">👤 Évaluation individuelle des élèves</div>
+                  {(!selectedEval.groupeList || selectedEval.groupeList.length===0) && (
+                    <p className="text-sm text-gray-500 mt-1">Ajoute d'abord les prénoms du groupe (onglet Configuration).</p>
+                  )}
+                  {(selectedEval.eleves||[]).map((el,idx)=> (
+                    <div key={el.name+idx} className="mt-2 grid md:grid-cols-3 gap-2 items-start bg-gray-50 rounded-xl p-3">
+                      <div className="font-medium">{el.name}</div>
+                      <div>
+                        <label className="text-sm">Note /20</label>
+                        <input type="number" min={0} max={20} value={el.note||0} onChange={ev=>{ const arr=[...(selectedEval.eleves||[])]; arr[idx] = { ...arr[idx], note: Number(ev.target.value) }; updateEval(selectedEval.id,{ eleves: arr }); }} className="border rounded-xl px-3 py-2 w-24 ml-2"/>
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="text-sm">Avis</label>
+                        <textarea className="mt-1 w-full border rounded-xl p-2 min-h-[60px]" value={el.avis||''} onChange={ev=>{ const arr=[...(selectedEval.eleves||[])]; arr[idx] = { ...arr[idx], avis: ev.target.value }; updateEval(selectedEval.id,{ eleves: arr }); }}/>
+                      </div>
+                    </div>
+                  ))}
+
+                  <Nav prev={'ensemble'} next={undefined} />
+                </section>
+              )}
+            </main>
+          </div>
+        );
+      }
+
+      const root = ReactDOM.createRoot(document.getElementById("root"));
+      root.render(<App />);
+    </script>
+  </body>
+</html>
