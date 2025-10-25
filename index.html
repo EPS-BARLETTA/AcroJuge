@@ -55,13 +55,11 @@
     .nav{display:flex;justify-content:space-between;gap:10px;margin-top:12px}
     .footer{border-top:1px solid var(--border);background:#fff;padding:10px 16px;text-align:center;color:#6b7280;font-size:12px}
     .hidden{display:none}
-    /* Modal */
-    .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:var(--modal-bg);z-index:50;padding:16px}
+    .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);z-index:50;padding:16px}
     .modal.show{display:flex}
     .modal-card{width:min(900px,95vw);max-height:85vh;overflow:auto;background:#fff;border-radius:18px;border:1px solid var(--border);padding:16px}
     .modal-title{font-weight:800;font-size:18px;margin:0 0 10px}
     .list-row{display:flex;gap:8px;align-items:center;justify-content:space-between;border:1px solid var(--border);border-radius:12px;padding:10px;background:#fafafa}
-    /* compact inputs for individual notes */
     .note-item{display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:12px;padding:8px;background:#fff}
     .note-item .who{font-weight:600}
     .note-item input{width:100px}
@@ -77,7 +75,6 @@
 </head>
 <body>
 <div class="app">
-  <!-- En-tête -->
   <header class="header">
     <button class="btn btn-amber" id="btnHelp">❓ Aide</button>
     <button class="btn btn-blue" id="btnExportPDF">📄 Exporter TOUT (PDF)</button>
@@ -85,7 +82,7 @@
   </header>
 
   <main class="main">
-    <!-- PAGE 1 : COVER -->
+    <!-- COVER -->
     <section id="page-cover" class="section">
       <div class="hero">
         <div>
@@ -96,7 +93,7 @@
       </div>
     </section>
 
-    <!-- PAGE 2 : CONFIG -->
+    <!-- CONFIG -->
     <section id="page-setup" class="section hidden">
       <div class="pageTitle">
         <h1>Configuration</h1>
@@ -137,7 +134,7 @@
       </div>
     </section>
 
-    <!-- PAGE 3 : OBSERVATION -->
+    <!-- OBSERVATION -->
     <section id="page-observe" class="section hidden">
       <div class="pageTitle">
         <h1>Observation</h1>
@@ -152,7 +149,7 @@
       </div>
     </section>
 
-    <!-- PAGE 4 : EVALUATIONS -->
+    <!-- EVALUATIONS -->
     <section id="page-evals" class="section hidden">
       <div class="pageTitle">
         <h1>Évaluations</h1>
@@ -186,7 +183,8 @@
         <div class="row">
           <button class="btn btn-blue" id="btnShowList">📂 Enchaînements</button>
           <button class="btn btn-amber" id="btnNewObservation">➕ Nouvelle observation</button>
-          <button class="btn btn-green-dark" id="btnExportHere">📄 Exporter TOUT (PDF)</button>
+          <button class="btn btn-green-dark" id="btnExportByObservers">📄 Exporter – Observateurs (PDF)</button>
+          <button class="btn btn-green" id="btnExportHere">📄 Exporter TOUT (PDF)</button>
         </div>
       </div>
     </section>
@@ -197,7 +195,7 @@
   </footer>
 </div>
 
-<!-- Modal : AIDE -->
+<!-- AIDE -->
 <div class="modal" id="modalHelp">
   <div class="modal-card">
     <div class="bar">
@@ -226,8 +224,8 @@
         <ul>
           <li><b>Évaluation de l’ensemble</b> : F/M/B/TB pour Composition, Entrée, Sortie, Originalité.</li>
           <li><b>Évaluation individuelle</b> : notes /20 (demi-points possibles), champs vides par défaut.</li>
-          <li><b>Nouvelle observation</b> : remet le <b>groupe</b> et le <b>plan</b> à zéro, retour à “Configuration”.</li>
-          <li>À la fin, <b>Exporter TOUT (PDF)</b> — un seul document avec tous les groupes.</li>
+          <li><b>Nouvelle observation</b> : remet le <b>groupe</b> et le <b>plan</b> à zéro, retour “Configuration”.</li>
+          <li>À la fin, <b>Exporter</b> — par <b>Observateurs</b> (leur dossier) ou <b>TOUT</b> (toute la séance).</li>
         </ul>
       </div>
       <div class="card">
@@ -241,7 +239,7 @@
   </div>
 </div>
 
-<!-- Modal : LISTE ENCHAINEMENTS -->
+<!-- LISTE ENCHAINEMENTS -->
 <div class="modal" id="modalList">
   <div class="modal-card">
     <div class="bar">
@@ -253,8 +251,8 @@
 </div>
 
 <script>
-/* ====== PERSISTENCE ====== */
-const STORAGE_KEY = "acrojuge_state_ui_v5"; // version TB + UI compact notes
+/* ===== PERSISTENCE ===== */
+const STORAGE_KEY = "acrojuge_state_ui_v6";
 function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(app)); }
 function load(){ try{ const raw=localStorage.getItem(STORAGE_KEY); if(raw) Object.assign(app, JSON.parse(raw)); }catch{} }
 function hardReset(){
@@ -264,7 +262,7 @@ function hardReset(){
   renderAll(); show("cover"); save();
 }
 
-/* ====== APP STATE ====== */
+/* ===== APP STATE ===== */
 function freshApp(){
   return {
     observers: [],
@@ -276,7 +274,7 @@ function freshApp(){
 }
 const app = freshApp();
 
-/* ====== CONSTS ====== */
+/* ===== CONSTS ===== */
 const LABEL = { p2:"Pyramide à 2", p3:"Pyramide à 3", p4:"Pyramide à 4", p5:"Pyramide à 5", libre:"Pyramide libre" };
 const NEED  = { p2:2, p3:3, p4:4, p5:5 };
 const COLORS= { p2:"p2", p3:"p3", p4:"p4", p5:"p5", libre:"libre" };
@@ -291,37 +289,34 @@ const ENSEMBLE_CRITS = ["Composition","Entrée","Sortie","Originalité"];
 const LEVELS = ["fragile","moyen","bon","tb"];
 const DOT = { fragile:"🔴", moyen:"🟡", bon:"🟢", tb:"🟩" };
 
-/* ====== DOM ====== */
+/* ===== DOM ===== */
 const $ = (id)=> document.getElementById(id);
 document.addEventListener("DOMContentLoaded", ()=>{
-  // Navigation
   $("goSetup").onclick     = ()=> show("setup");
   $("observeBack").onclick = ()=> show("setup");
   $("observeNext").onclick = ()=> show("evals");
   $("evalsBack").onclick   = ()=> show("observe");
   $("btnNewObservation").onclick = newObservationFlow;
 
-  // Modals
-  $("btnHelp").onclick   = ()=> toggleModal("modalHelp", true);
-  $("helpClose").onclick = ()=> toggleModal("modalHelp", false);
+  $("btnHelp").onclick     = ()=> toggleModal("modalHelp", true);
+  $("helpClose").onclick   = ()=> toggleModal("modalHelp", false);
   $("btnShowList").onclick = ()=> { renderListModal(); toggleModal("modalList", true); };
   $("listClose").onclick   = ()=> toggleModal("modalList", false);
 
-  // Reset / Export
   $("btnHardReset").onclick   = hardReset;
   $("btnResetCounts").onclick = ()=>{ app.counts={p2:0,p3:0,p4:0,p5:0,libre:0}; renderSetup(); save(); };
   $("btnStartObserve").onclick= ()=> addObservation(true);
-  $("btnExportPDF").onclick   = exportPDF;
-  $("btnExportHere").onclick  = exportPDF;
 
-  // Chips
+  $("btnExportPDF").onclick   = exportAllPDF;   // en-tête (toute la séance)
+  $("btnExportHere").onclick  = exportAllPDF;   // en bas de page évaluations
+  $("btnExportByObservers").onclick = exportByObserversPDF; // dossier par équipe
+
   const obsInput=$("obsInput"), grpInput=$("grpInput");
   obsInput.addEventListener("keydown",(e)=>{ if(["Enter",",",";"].includes(e.key)){ e.preventDefault(); addNames("observers", obsInput.value); obsInput.value=""; }});
   obsInput.addEventListener("paste",(e)=>{ const t=e.clipboardData?.getData("text")||""; if(/[,\n;]/.test(t)){ e.preventDefault(); addNames("observers", t); }});
   grpInput.addEventListener("keydown",(e)=>{ if(["Enter",",",";"].includes(e.key)){ e.preventDefault(); addNames("group", grpInput.value); grpInput.value=""; }});
   grpInput.addEventListener("paste",(e)=>{ const t=e.clipboardData?.getData("text")||""; if(/[,\n;]/.test(t)){ e.preventDefault(); addNames("group", t); }});
 
-  // Counters
   ["p2","p3","p4","p5","libre"].forEach(k=>{
     $("count-"+k).addEventListener("input",(e)=>{ app.counts[k] = Math.max(0, Number(e.target.value)||0); save(); });
   });
@@ -336,7 +331,7 @@ function show(which){
 }
 function toggleModal(id,open){ $(id).classList.toggle("show", !!open); }
 
-/* ====== HELPERS ====== */
+/* ===== HELPERS ===== */
 function uid(){ return Math.random().toString(36).slice(2,10); }
 function toChips(container, arr, onRemove){
   container.innerHTML = "";
@@ -360,8 +355,10 @@ function addNames(field, raw){
 }
 function syncEleves(prev, names){ const by=new Map((prev||[]).map(e=>[e.name,e])); return (names||[]).map(n=> by.get(n) || { name:n, note:null }); }
 function makePyramide(t){ const sec=Object.fromEntries(DEFAULT_SECURITE.map(s=>[s,"moyen"])); return { id:uid(), type:t, securite:sec, tenue:"non" }; }
+function arraysEqualIgnoreOrder(a=[],b=[]){ const A=[...a].sort(), B=[...b].sort(); if(A.length!==B.length) return false; for(let i=0;i<A.length;i++) if(A[i]!==B[i]) return false; return true; }
+function slugifyNames(arr){ return (arr||[]).map(n=>n.normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-zA-Z0-9]+/g,"_").replace(/^_|_$/g,"")).filter(Boolean).join("_")||"Observateurs"; }
 
-/* ====== RENDER ====== */
+/* ===== RENDER ===== */
 function renderAll(){ renderSetup(); renderObserve(); renderEvals(); }
 
 function renderSetup(){
@@ -377,7 +374,6 @@ function renderObserve(){
   const ev = app.evals.find(e=>e.id===app.selectedId);
   if(!ev){ observeContent.innerHTML = `<div class="muted">Démarre une observation pour créer le premier enchaînement.</div>`; return; }
 
-  // Groupe éditable
   const grpCard=document.createElement("div");
   grpCard.className="card";
   grpCard.innerHTML = `
@@ -392,7 +388,6 @@ function renderObserve(){
   grpEdit.addEventListener("keydown",(e)=>{ if(["Enter",",",";"].includes(e.key)){ e.preventDefault(); const names=splitNames(grpEdit.value); ev.groupeList=[...(ev.groupeList||[]), ...names.filter(n=>!(ev.groupeList||[]).includes(n))]; ev.eleves=syncEleves(ev.eleves, ev.groupeList); grpEdit.value=""; renderObserve(); save(); }});
   grpEdit.addEventListener("paste",(e)=>{ const t=e.clipboardData?.getData("text")||""; if(/[,\n;]/.test(t)){ e.preventDefault(); const names=splitNames(t); ev.groupeList=[...(ev.groupeList||[]), ...names.filter(n=>!(ev.groupeList||[]).includes(n))]; ev.eleves=syncEleves(ev.eleves, ev.groupeList); renderObserve(); save(); }});
 
-  // Pyramides
   const wrap=document.createElement("div"); wrap.className="grid grid-2";
   ev.pyramides.forEach((p, idx)=>{
     const el=document.createElement("div"); el.className=`pyr ${COLORS[p.type]}`;
@@ -421,11 +416,9 @@ function renderObserve(){
           `).join("")}
         </div>
       </div>`;
-    // Tenue
     el.querySelectorAll("[data-tn]").forEach(btn=>{
       btn.onclick = ()=>{ p.tenue = btn.getAttribute("data-tn"); renderObserve(); save(); };
     });
-    // Sécurité F/M/B/TB
     el.querySelectorAll(".fmblist").forEach((rowEl,i)=>{
       rowEl.querySelectorAll("[data-fmb]").forEach(b=>{
         b.onclick = ()=>{
@@ -442,7 +435,6 @@ function renderObserve(){
 function renderEvals(){
   const ev = app.evals.find(e=>e.id===app.selectedId); if(!ev) return;
 
-  // Ensemble (F/M/B/TB)
   const cont=$("ensembleFMB");
   cont.innerHTML="";
   if(!ev.ensemble) ev.ensemble = Object.fromEntries(ENSEMBLE_CRITS.map(c=>[c,"moyen"]));
@@ -462,7 +454,6 @@ function renderEvals(){
     cont.appendChild(card);
   });
 
-  // Individuel (3 par ligne)
   const elevesList=$("elevesList");
   elevesList.innerHTML="";
   (ev.eleves||[]).forEach((el, idx)=>{
@@ -475,7 +466,6 @@ function renderEvals(){
     elevesList.appendChild(item);
   });
 
-  // Commentaire / note finale
   const commentaire=$("commentaire"), noteFinale=$("noteFinale");
   commentaire.value = ev.commentaire??"";
   commentaire.oninput = (e)=>{ ev.commentaire=e.target.value; save(); };
@@ -483,7 +473,7 @@ function renderEvals(){
   noteFinale.oninput = (e)=>{ const v=e.target.value; ev.noteFinale = v===''? null : clamp20(round05(Number(v)||0)); save(); };
 }
 
-/* ====== LIST MODAL ====== */
+/* ===== LISTE ENCHAINEMENTS ===== */
 function renderListModal(){
   const cont = $("listContainer");
   cont.innerHTML = "";
@@ -514,7 +504,7 @@ function renderListModal(){
   });
 }
 
-/* ====== ACTIONS ====== */
+/* ===== ACTIONS ===== */
 function round05(n){ return Math.round(n*2)/2; }
 function clamp20(n){ return Math.min(20, Math.max(0, n)); }
 
@@ -540,7 +530,6 @@ function addObservation(goToObserve){
   renderSetup(); renderObserve(); renderEvals(); save();
   if(goToObserve) show("observe");
 }
-
 function newObservationFlow(){
   app.group = [];
   app.counts = {p2:0,p3:0,p4:0,p5:0,libre:0};
@@ -548,111 +537,132 @@ function newObservationFlow(){
   show("setup");
 }
 
-/* ====== EXPORT PDF (TOUT) ====== */
-function exportPDF(){
+/* ===== EXPORT PDF ===== */
+function exportAllPDF(){ renderPDF({ mode:"all" }); }
+function exportByObserversPDF(){
+  const team = app.observers||[];
+  if(!team.length){ alert("Renseigne d’abord les observateurs (page Configuration)."); return; }
+  renderPDF({ mode:"byObservers", team });
+}
+
+function renderPDF({mode, team=[]}){
   const footer = "AcroJuge - Equipe EPS Lycée Vauban - LUXEMBOURG - JB";
-  if(window.__HAS_LOCAL_JSPDF__ && window.jspdf){
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({unit:"pt",format:"a4"});
-    let y=60; const left=40, right=555, maxW=right-left;
-    const ensure = (space)=>{ if(y+space>780){ addFooter(); doc.addPage(); y=60; } };
-    const nl=(dy=16)=>{ y+=dy; if(y>780){ addFooter(); doc.addPage(); y=60; } };
-    const addFooter=()=>{ const p=doc.getCurrentPageInfo().pageNumber;
-      doc.setFontSize(9); doc.setTextColor(120);
-      doc.text(`${footer}  •  Page ${p}/${doc.getNumberOfPages()}  •  ${new Date().toLocaleDateString()}`, left, 820);
-      doc.setTextColor(0);
-    };
-    const dot = { fragile:"🔴", moyen:"🟡", bon:"🟢", tb:"🟩" };
-    const levelText = (lv)=> ({fragile:"Fragile",moyen:"Moyen",bon:"Bon",tb:"Très bon"})[lv]||lv;
+  if(!(window.__HAS_LOCAL_JSPDF__ && window.jspdf)){ window.print(); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({unit:"pt",format:"a4"});
+  let y=60; const left=40, right=555, maxW=right-left;
+  const ensure=(space)=>{ if(y+space>780){ addFooter(); doc.addPage(); y=60; } };
+  const nl=(dy=16)=>{ y+=dy; if(y>780){ addFooter(); doc.addPage(); y=60; } };
+  const addFooter=()=>{ const p=doc.getCurrentPageInfo().pageNumber;
+    doc.setFontSize(9); doc.setTextColor(120);
+    doc.text(`${footer}  •  Page ${p}/${doc.getNumberOfPages()}  •  ${new Date().toLocaleDateString()}`, left, 820);
+    doc.setTextColor(0);
+  };
+  const dot = { fragile:"🔴", moyen:"🟡", bon:"🟢", tb:"🟩" };
+  const levelText = (lv)=> ({fragile:"Fragile",moyen:"Moyen",bon:"Bon",tb:"Très bon"})[lv]||lv;
 
-    // Titre + Observateurs globaux
-    doc.setFontSize(20); doc.text("AcroJuge — Export de séance", left, y); nl(20);
-    doc.setFontSize(11);
-    const obs = (app.observers||[]).join(", ") || "(observateurs non saisis)";
-    doc.text(`Observateurs (séance): ${obs}`, left, y); nl();
-
-    (app.evals||[]).forEach((e, i)=>{
-      ensure(60);
-      // En-tête groupe
-      doc.setFont(undefined,"bold");
-      doc.text(`${i+1}. Groupe observé: ${(e.groupeList||[]).join(", ") || "(à compléter)"}`, left, y); nl();
-      doc.setFont(undefined,"normal");
-      const obsLine = (e.observerList||[]).length ? (e.observerList||[]).join(", ") : obs;
-      doc.text(`Observateurs (fiche): ${obsLine}`, left, y); nl(6);
-
-      // Pyramides (détaillées)
-      if((e.pyramides||[]).length){
-        doc.setFont(undefined,"bold"); doc.text("Pyramides de l'enchaînement", left, y); nl(10); doc.setFont(undefined,"normal");
-        e.pyramides.forEach((p, idx)=>{
-          ensure(40);
-          doc.setFont(undefined,"bold");
-          doc.text(`${idx+1}. ${LABEL[p.type]} — Tenue 3s: ${p.tenue.toUpperCase()}`, left, y); nl();
-          doc.setFont(undefined,"normal");
-          const lines = Object.entries(p.securite).map(([k,v])=>`   ${dot[v]} ${k} — ${levelText(v)}`);
-          lines.forEach(ln=>{
-            const wrapped = doc.splitTextToSize(ln, maxW);
-            wrapped.forEach(w=>{ ensure(18); doc.text(w, left, y); nl(14); });
-          });
-          nl(2);
-        });
-      } else {
-        doc.text("(Aucune pyramide)", left, y); nl();
-      }
-
-      // Évaluation d’ensemble
-      ensure(40);
-      doc.setFont(undefined,"bold"); doc.text("Évaluation d’ensemble", left, y); nl();
-      doc.setFont(undefined,"normal");
-      ENSEMBLE_CRITS.forEach(c=>{
-        const lv = (e.ensemble||{})[c] || "moyen";
-        ensure(18); doc.text(`• ${c}: ${dot[lv]} ${levelText(lv)}`, left, y); nl();
-      });
-      nl(4);
-
-      // Note finale + commentaire
-      ensure(18);
-      const finalTxt = e.noteFinale==null ? "—" : String(Number(e.noteFinale).toFixed(1)).replace(".",",");
-      doc.text(`Note finale /20: ${finalTxt}`, left, y); nl();
-      if(e.commentaire){
-        const wrapped = doc.splitTextToSize(`Commentaire: ${e.commentaire}`, maxW);
-        wrapped.forEach(w=>{ ensure(18); doc.text(w, left, y); nl(14); });
-      }
-      nl(4);
-
-      // Individuel (compact)
-      if((e.eleves||[]).length){
-        ensure(24);
-        doc.setFont(undefined,"bold"); doc.text("Évaluation individuelle (notes /20)", left, y); nl();
-        doc.setFont(undefined,"normal");
-        // 3 colonnes compactes
-        const perRow = 3;
-        let iRow = 0;
-        let xCols = [left, left + (maxW/3), left + 2*(maxW/3)];
-        (e.eleves||[]).forEach((el, idx)=>{
-          const col = idx % perRow;
-          if(col===0 && idx>0){ nl(16); iRow++; ensure(18); }
-          const n = el.note==null ? "—" : String(Number(el.note).toFixed(1)).replace(".",",");
-          doc.text(`${el.name}: ${n}/20`, xCols[col]+4, y);
-        });
-        nl(18);
-      }
-
-      // Séparateur
-      ensure(12);
-      doc.setDrawColor(220); doc.line(left, y, right, y); doc.setDrawColor(0); nl(12);
+  // Sélection des observations
+  let selection = (app.evals||[]);
+  let headerTitle = "AcroJuge — Export de séance";
+  let fileName = `AcroJuge_${new Date().toISOString().slice(0,10)}.pdf`;
+  if(mode==="byObservers"){
+    selection = selection.filter(e=>{
+      const list = (e.observerList||[]).filter(Boolean);
+      // s’il n’y a rien sur la fiche, on considère que c’est l’équipe de séance
+      if(list.length===0) return arraysEqualIgnoreOrder(team, app.observers||[]);
+      return arraysEqualIgnoreOrder(list, team);
     });
-
-    // Pieds de page
-    const total = doc.getNumberOfPages();
-    for(let i=1;i<=total;i++){
-      doc.setPage(i); doc.setFontSize(9); doc.setTextColor(120);
-      doc.text(`${footer}  •  Page ${i}/${total}  •  ${new Date().toLocaleDateString()}`, left, 820);
-      doc.setTextColor(0);
-    }
-    doc.save(`AcroJuge_${new Date().toISOString().slice(0,10)}.pdf`);
-  } else {
-    window.print();
+    const label = team.join(", ") || "Observateurs";
+    headerTitle = `Dossier d’observation — Observateurs: ${label}`;
+    fileName = `AcroJuge_${slugifyNames(team)}_${new Date().toISOString().slice(0,10)}.pdf`;
   }
+
+  // En-tête
+  doc.setFontSize(20); doc.text(headerTitle, left, y); nl(20);
+  doc.setFontSize(11);
+  const obs = (app.observers||[]).join(", ") || "(observateurs non saisis)";
+  if(mode==="all"){
+    doc.text(`Observateurs (séance): ${obs}`, left, y); nl();
+  } else {
+    doc.text(`Équipe exportée: ${(team||[]).join(", ")}`, left, y); nl();
+  }
+
+  // Corps
+  selection.forEach((e, i)=>{
+    ensure(60);
+    doc.setFont(undefined,"bold");
+    doc.text(`${i+1}. Groupe observé: ${(e.groupeList||[]).join(", ") || "(à compléter)"}`, left, y); nl();
+    doc.setFont(undefined,"normal");
+    const obsLine = (e.observerList||[]).length ? (e.observerList||[]).join(", ") : obs;
+    doc.text(`Observateurs (fiche): ${obsLine}`, left, y); nl(6);
+
+    // Pyramides
+    if((e.pyramides||[]).length){
+      doc.setFont(undefined,"bold"); doc.text("Pyramides de l'enchaînement", left, y); nl(10); doc.setFont(undefined,"normal");
+      e.pyramides.forEach((p, idx)=>{
+        ensure(40);
+        doc.setFont(undefined,"bold");
+        doc.text(`${idx+1}. ${LABEL[p.type]} — Tenue 3s: ${p.tenue.toUpperCase()}`, left, y); nl();
+        doc.setFont(undefined,"normal");
+        const lines = Object.entries(p.securite).map(([k,v])=>`   ${dot[v]} ${k} — ${levelText(v)}`);
+        lines.forEach(ln=>{
+          const wrapped = doc.splitTextToSize(ln, maxW);
+          wrapped.forEach(w=>{ ensure(18); doc.text(w, left, y); nl(14); });
+        });
+        nl(2);
+      });
+    } else {
+      doc.text("(Aucune pyramide)", left, y); nl();
+    }
+
+    // Ensemble
+    ensure(40);
+    doc.setFont(undefined,"bold"); doc.text("Évaluation d’ensemble", left, y); nl();
+    doc.setFont(undefined,"normal");
+    (e.ensemble? ENSEMBLE_CRITS:[]).forEach(c=>{
+      const lv = (e.ensemble||{})[c] || "moyen";
+      ensure(18); doc.text(`• ${c}: ${dot[lv]} ${levelText(lv)}`, left, y); nl();
+    });
+    nl(4);
+
+    // Note finale + commentaire
+    ensure(18);
+    const finalTxt = e.noteFinale==null ? "—" : String(Number(e.noteFinale).toFixed(1)).replace(".",",");
+    doc.text(`Note finale /20: ${finalTxt}`, left, y); nl();
+    if(e.commentaire){
+      const wrapped = doc.splitTextToSize(`Commentaire: ${e.commentaire}`, maxW);
+      wrapped.forEach(w=>{ ensure(18); doc.text(w, left, y); nl(14); });
+    }
+    nl(4);
+
+    // Individuel (3 colonnes compactes)
+    if((e.eleves||[]).length){
+      ensure(24);
+      doc.setFont(undefined,"bold"); doc.text("Évaluation individuelle (notes /20)", left, y); nl();
+      doc.setFont(undefined,"normal");
+      const perRow = 3;
+      let xCols = [left, left + (maxW/3), left + 2*(maxW/3)];
+      (e.eleves||[]).forEach((el, idx)=>{
+        const col = idx % perRow;
+        if(col===0 && idx>0){ nl(16); ensure(18); }
+        const n = el.note==null ? "—" : String(Number(el.note).toFixed(1)).replace(".",",");
+        doc.text(`${el.name}: ${n}/20`, xCols[col]+4, y);
+      });
+      nl(18);
+    }
+
+    ensure(12);
+    doc.setDrawColor(220); doc.line(left, y, right, y); doc.setDrawColor(0); nl(12);
+  });
+
+  // Pieds de page
+  const total = doc.getNumberOfPages();
+  for(let i=1;i<=total;i++){
+    doc.setPage(i); doc.setFontSize(9); doc.setTextColor(120);
+    doc.text(`${footer}  •  Page ${i}/${total}  •  ${new Date().toLocaleDateString()}`, left, 820);
+    doc.setTextColor(0);
+  }
+  doc.save(fileName);
 }
 </script>
 </body>
