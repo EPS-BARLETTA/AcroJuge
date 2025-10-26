@@ -144,7 +144,6 @@
       <div class="nav">
         <button class="btn btn-gray" id="observeBack">⬅️ Configuration</button>
         <div class="row">
-          <!-- Bouton Enregistrer supprimé (auto-save) -->
           <button class="btn btn-green" id="observeNext">Évaluations ➡️</button>
         </div>
       </div>
@@ -185,7 +184,26 @@
           <button class="btn btn-blue" id="btnShowList">📂 Enchaînements</button>
           <button class="btn btn-amber" id="btnNewObservation">➕ Nouvelle observation</button>
           <button class="btn btn-green-dark" id="btnExportByObservers">📄 Exporter en PDF</button>
+          <button class="btn btn-green" id="btnGoBilan">📑 Bilan</button>
           <span id="exportTeamLabel" class="muted"></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- PAGE 5 : BILAN -->
+    <section id="page-bilan" class="section hidden">
+      <div class="pageTitle">
+        <h1>Bilan des observations</h1>
+        <div class="sub" id="bilanSubtitle">Observateurs : —</div>
+      </div>
+
+      <div id="bilanContent" class="grid"></div>
+
+      <div class="nav">
+        <button class="btn btn-gray" id="bilanBack">⬅️ Retour</button>
+        <div class="row">
+          <button class="btn btn-green-dark" id="bilanDownloadPDF">📄 Télécharger le Bilan (PDF)</button>
+          <button class="btn btn-blue" id="bilanExportJSON">🗂️ Exporter la sauvegarde affichée (.json)</button>
         </div>
       </div>
     </section>
@@ -221,19 +239,11 @@
         </ul>
       </div>
       <div class="card">
-        <div class="title">3) Évaluations</div>
+        <div class="title">3) Évaluations & Bilan</div>
         <ul>
-          <li><b>Évaluation de l’ensemble</b> : F/M/B/TB pour Composition, Entrée, Sortie, Originalité.</li>
-          <li><b>Évaluation individuelle</b> : notes /20 (demi-points possibles), champs vides par défaut.</li>
-          <li><b>Nouvelle observation</b> : remet le <b>groupe</b> et le <b>plan</b> à zéro, retour “Configuration”.</li>
-          <li>À la fin, appuie sur <b>📄 Exporter en PDF</b> : un <b>seul document</b> au <b>nom des observateurs</b> avec <b>toutes</b> les observations (Observations + Évaluations).</li>
-        </ul>
-      </div>
-      <div class="card">
-        <div class="title">Conseils iPad</div>
-        <ul>
-          <li>Ajoute l’app à l’écran d’accueil (Safari ⋯ → <b>Sur l’écran d’accueil</b>).</li>
-          <li>Si le PDF ne se télécharge pas, utilise <b>Imprimer</b> → <b>Enregistrer en PDF</b>.</li>
+          <li>Complète l’évaluation d’ensemble et individuelle.</li>
+          <li>Appuie sur <b>📑 Bilan</b> pour voir un récapitulatif clair par groupe observé.</li>
+          <li>En bas du Bilan : <b>PDF</b> et <b>export .json</b> des données affichées.</li>
         </ul>
       </div>
     </div>
@@ -253,7 +263,7 @@
 
 <script>
 /* ===== PERSISTENCE ===== */
-const STORAGE_KEY = "acrojuge_state_ui_v11_auto_save";
+const STORAGE_KEY = "acrojuge_state_ui_v12_bilan";
 function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(app)); }
 function load(){ try{ const raw=localStorage.getItem(STORAGE_KEY); if(raw) Object.assign(app, JSON.parse(raw)); }catch{} }
 function hardReset(){
@@ -287,11 +297,13 @@ const DEFAULT_SECURITE = [
   "Descente sécurisée",
 ];
 const ENSEMBLE_CRITS = ["Composition","Entrée","Sortie","Originalité"];
+const DOTS = { fragile:"🔴", moyen:"🟡", bon:"🟢", tb:"🟩" };
+const FMB_TEXT = { fragile:"Fragile", moyen:"Moyen", bon:"Bon", tb:"Très bon" };
 
 /* ===== DOM ===== */
 const $ = (id)=> document.getElementById(id);
 document.addEventListener("DOMContentLoaded", async ()=>{
-  // Persistance renforcée (iPad / Safari)
+  // Persistance renforcée (iPad/Safari géré MDM)
   if (navigator.storage && navigator.storage.persist) {
     try { await navigator.storage.persist(); } catch(e) { console.warn("persist() refusé :", e); }
   }
@@ -302,6 +314,8 @@ document.addEventListener("DOMContentLoaded", async ()=>{
   $("observeNext").onclick = ()=> show("evals");
   $("evalsBack").onclick   = ()=> show("observe");
   $("btnNewObservation").onclick = newObservationFlow;
+  $("btnGoBilan").onclick  = ()=> { renderBilan(); show("bilan"); };
+  $("bilanBack").onclick   = ()=> show("evals");
 
   // Modals
   $("btnHelp").onclick     = ()=> toggleModal("modalHelp", true);
@@ -322,8 +336,12 @@ document.addEventListener("DOMContentLoaded", async ()=>{
     addObservation(true);
   };
 
-  // Export PDF unique (par observateurs détectés automatiquement)
+  // Export PDF direct depuis Évaluations (équivalent au PDF Bilan)
   $("btnExportByObservers").onclick = exportByObserversPDF;
+
+  // Bilan exports
+  $("bilanDownloadPDF").onclick = exportBilanPDF;
+  $("bilanExportJSON").onclick  = exportBilanJSON;
 
   // Chips (observers / group)
   const obsInput=$("obsInput"), grpInput=$("grpInput");
@@ -347,8 +365,8 @@ document.addEventListener("DOMContentLoaded", async ()=>{
 });
 
 function show(which){
-  ["page-cover","page-setup","page-observe","page-evals"].forEach(id=>$(id).classList.add("hidden"));
-  const map={cover:"page-cover",setup:"page-setup",observe:"page-observe",evals:"page-evals"};
+  ["page-cover","page-setup","page-observe","page-evals","page-bilan"].forEach(id=>$(id).classList.add("hidden"));
+  const map={cover:"page-cover",setup:"page-setup",observe:"page-observe",evals:"page-evals",bilan:"page-bilan"};
   $(map[which]).classList.remove("hidden");
 }
 function toggleModal(id,open){ $(id).classList.toggle("show", !!open); }
@@ -381,7 +399,7 @@ function normalizeName(s=""){ return s.normalize("NFD").replace(/[\u0300-\u036f]
 function teamKey(arr=[]){ return (arr||[]).map(normalizeName).filter(Boolean).sort().join("|"); }
 function teamLabel(arr=[]){ return (arr||[]).filter(Boolean).join(", "); }
 
-/* Marque auto la fiche comme “completed” si des infos utiles existent */
+/* Auto-completed */
 function computeCompleted(ev){
   if(!ev) return false;
   const hasGroup = (ev.groupeList||[]).length>0;
@@ -393,10 +411,7 @@ function computeCompleted(ev){
   const hasFinal   = ev.noteFinale!=null || (ev.commentaire||"").trim()!=="";
   return !!(hasGroup && hasPyrs && (anyTenue || anySecDiff || anyEnsDiff || anyIndiv || hasFinal));
 }
-function touch(ev){
-  ev.completed = computeCompleted(ev);
-  save();
-}
+function touch(ev){ ev.completed = computeCompleted(ev); save(); }
 
 /* ===== MIGRATIONS ===== */
 function migrateObserverLists(){
@@ -655,6 +670,107 @@ function newObservationFlow(){
   show("setup");
 }
 
+/* ===== BILAN (PAGE + EXPORTS) ===== */
+function getTeamSelection(){
+  const team = getCurrentExportTeam();
+  const k = teamKey(team);
+  const selection = (app.evals||[]).filter(e => teamKey(e.observerList||[])===k);
+  return { team, selection };
+}
+
+function renderBilan(){
+  const { team, selection } = getTeamSelection();
+  const sub = $("bilanSubtitle");
+  sub.textContent = team.length ? `Observateurs : ${team.join(", ")} • ${selection.length} observation(s)` : "Aucune équipe détectée";
+  const cont = $("bilanContent");
+  cont.innerHTML = "";
+
+  if(!selection.length){
+    cont.innerHTML = `<div class="card muted">Aucune observation trouvée pour cette équipe.</div>`;
+    return;
+  }
+
+  selection.forEach((e, idx)=>{
+    const cnt = { p2:0,p3:0,p4:0,p5:0,libre:0 };
+    (e.pyramides||[]).forEach(p=> cnt[p.type]++);
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `
+      <div class="bar">
+        <div class="title">#${idx+1} — Groupe observé : ${(e.groupeList||[]).join(", ")||"(à compléter)"} ${e.completed? '✅':''}</div>
+        <div class="muted">Obs: ${(e.observerList||[]).join(", ")||"—"} • P2:${cnt.p2} P3:${cnt.p3} P4:${cnt.p4} P5:${cnt.p5} L:${cnt.libre}</div>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <div class="title">OBSERVATIONS (pyramides)</div>
+          ${
+            (e.pyramides||[]).length
+            ? e.pyramides.map((p,iP)=>`
+              <div class="pyr ${COLORS[p.type]}" style="margin-top:8px">
+                <div class="bar"><div><b>Pyramide ${iP+1}</b> — ${LABEL[p.type]}</div><div class="muted">${NEED[p.type]? NEED[p.type]+" élèves":"libre"}</div></div>
+                <div class="muted" style="margin-top:6px">Tenue 3s : <b>${String(p.tenue||"non").toUpperCase()}</b></div>
+                <ul style="margin:8px 0 0 14px">
+                  ${Object.entries(p.securite||{}).map(([crit,lv])=>`<li>${DOTS[lv]||"•"} ${crit} — <i>${FMB_TEXT[lv]||lv}</i></li>`).join("")}
+                </ul>
+              </div>
+            `).join("")
+            : `<div class="muted">(Aucune pyramide)</div>`
+          }
+        </div>
+
+        <div class="card">
+          <div class="title">ÉVALUATIONS</div>
+          <div><b>Ensemble :</b></div>
+          <ul style="margin:6px 0 10px 16px">
+            ${ENSEMBLE_CRITS.map(c=>{
+              const lv=(e.ensemble||{})[c]||"moyen";
+              return `<li>${c} : ${DOTS[lv]||"•"} <i>${FMB_TEXT[lv]||lv}</i></li>`;
+            }).join("")}
+          </ul>
+          ${
+            (e.eleves||[]).length
+            ? `<div><b>Individuelle (/20) :</b></div>
+               <ul style="margin:6px 0 0 16px">
+                 ${(e.eleves||[]).map(el=>{
+                   const n = el.note==null ? "—" : String(Number(el.note).toFixed(1)).replace(".",",");
+                   return `<li>${el.name} : ${n}/20</li>`;
+                 }).join("")}
+               </ul>`
+            : ``
+          }
+          <div style="margin-top:8px"><b>Note finale /20 :</b> ${e.noteFinale==null ? "—" : String(Number(e.noteFinale).toFixed(1)).replace(".",",")}</div>
+          ${ (e.commentaire||"").trim() ? `<div style="margin-top:6px"><b>Commentaire :</b> ${e.commentaire}</div>` : "" }
+        </div>
+      </div>
+    `;
+    cont.appendChild(card);
+  });
+}
+
+function buildFileNameFromTeam(team=[]){
+  const safe=(team||[]).map(n=>(n||"").trim().replace(/\s+/g,'-')).join('-').replace(/[<>:"/\\|?*]+/g,'').replace(/-{2,}/g,'-').replace(/^-|-$/g,'');
+  const d=new Date().toISOString().slice(0,10);
+  return `AcroJuge-${safe||"Observateurs"}-${d}`;
+}
+
+function exportBilanJSON(){
+  const { team, selection } = getTeamSelection();
+  if(!selection.length){ alert("Aucune observation à exporter."); return; }
+  const blob = new Blob([JSON.stringify({ observers: team, observations: selection }, null, 2)], {type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download=buildFileNameFromTeam(team)+".json";
+  document.body.appendChild(a); a.click(); URL.revokeObjectURL(a.href); a.remove();
+}
+
+function exportBilanPDF(){
+  const { team } = getTeamSelection();
+  if(!team.length){ alert("Aucune équipe d’observateurs détectée."); return; }
+  // Réutilise le moteur PDF “par observateurs”
+  renderPDF({ mode:"byObservers", team });
+}
+
 /* ===== EXPORT PDF UNIQUE – ÉQUIPE AUTO ===== */
 function exportByObserversPDF(){
   const team = getCurrentExportTeam();
@@ -665,25 +781,11 @@ function exportByObserversPDF(){
   renderPDF({ mode:"byObservers", team });
 }
 
-// Nom de fichier lisible: tirets, accents conservés, caractères interdits supprimés
-function buildFileNameFromTeam(team=[]){
-  const safe = (team||[])
-    .map(n => (n||"").trim().replace(/\s+/g,'-'))
-    .join('-')
-    .replace(/[<>:"/\\|?*]+/g,'')
-    .replace(/-{2,}/g,'-')
-    .replace(/^-|-$/g,'');
-  const d = new Date().toISOString().slice(0,10);
-  return `AcroJuge-${safe||"Observateurs"}-${d}.pdf`;
-}
-
-// PDF clair: par observation -> OBSERVATIONS puis ÉVALUATIONS
+/* ===== PDF ENGINE ===== */
 function renderPDF({mode, team=[]}){
-  const footerText = "ScanProf/AcroJuge – Équipe EPS Lycée Vauban – LUXEMBOURG – JB";
   if(!(window.__HAS_LOCAL_JSPDF__ && window.jspdf)){ window.print(); return; }
   const { jsPDF } = window.jspdf;
 
-  // Sélection stricte par équipe (ordre indifférent)
   const key = teamKey(team);
   const selection = (app.evals || []).filter(e => teamKey(e.observerList || []) === key);
   if(!selection.length){
@@ -691,11 +793,11 @@ function renderPDF({mode, team=[]}){
     return;
   }
 
-  // Helpers mise en page
   const doc = new jsPDF({unit:"pt",format:"a4"});
   const M = { top:60, left:40, right:555, bottom:820, maxW: 555-40 };
   let y = M.top;
 
+  const footerText = "ScanProf/AcroJuge – Équipe EPS Lycée Vauban – LUXEMBOURG – JB";
   const addFooter = () => {
     const p = doc.getCurrentPageInfo().pageNumber;
     doc.setFontSize(9); doc.setTextColor(120);
@@ -708,9 +810,6 @@ function renderPDF({mode, team=[]}){
 
   const wrap = (txt, width)=> doc.splitTextToSize(txt, width);
 
-  const FMB = { fragile:"Fragile", moyen:"Moyen", bon:"Bon", tb:"Très bon" };
-  const DOTS = { fragile:"🔴", moyen:"🟡", bon:"🟢", tb:"🟩" };
-
   // En-tête global
   doc.setFontSize(20); doc.setFont(undefined, "bold");
   doc.text(`Dossier d’observation`, M.left, y); nl(20);
@@ -721,14 +820,13 @@ function renderPDF({mode, team=[]}){
 
   // Corps : chaque observation -> 2 volets
   selection.forEach((e, idx) => {
-    // En-tête observation
     ensure(40);
     doc.setFontSize(14); doc.setFont(undefined, "bold");
     const doneTxt = e.completed ? " (enregistrée ✅)" : "";
     doc.text(`${idx+1}. Groupe observé : ${(e.groupeList||[]).join(", ") || "(à compléter)"}${doneTxt}`, M.left, y); nl(18);
     doc.setFont(undefined, "normal"); doc.setFontSize(11);
 
-    // === 1) OBSERVATIONS (pyramides) ===
+    // OBSERVATIONS
     doc.setFont(undefined, "bold"); doc.text("OBSERVATIONS", M.left, y); nl(12);
     doc.setFont(undefined, "normal");
     if ((e.pyramides||[]).length){
@@ -738,7 +836,7 @@ function renderPDF({mode, team=[]}){
         doc.text(`• Pyramide ${iP+1} — ${LABEL[p.type]} — Tenue 3s : ${String(p.tenue||"non").toUpperCase()}`, M.left, y); nl();
         doc.setFont(undefined,"normal");
         Object.entries(p.securite||{}).forEach(([crit,lv])=>{
-          const line = `${DOTS[lv]||"•"} ${crit} — ${FMB[lv]||lv}`;
+          const line = `${DOTS[lv]||"•"} ${crit} — ${FMB_TEXT[lv]||lv}`;
           wrap(line, M.maxW).forEach(w=>{ ensure(16); doc.text(w, M.left+16, y); nl(14); });
         });
         nl(6);
@@ -747,24 +845,20 @@ function renderPDF({mode, team=[]}){
       doc.text("(Aucune pyramide)", M.left, y); nl(14);
     }
 
-    // Saut de page si besoin
     ensure(100);
 
-    // === 2) ÉVALUATIONS ===
+    // ÉVALUATIONS
     doc.setFont(undefined,"bold"); doc.text("ÉVALUATIONS", M.left, y); nl(12);
     doc.setFont(undefined,"normal");
-
-    // Ensemble F/M/B/TB
     doc.setFont(undefined,"bold"); doc.text("• Évaluation de l’ensemble", M.left, y); nl(12);
     doc.setFont(undefined,"normal");
     ENSEMBLE_CRITS.forEach((c)=>{
       const lv = (e.ensemble||{})[c] || "moyen";
       ensure(16);
-      doc.text(`   ${c} : ${DOTS[lv]||"•"} ${FMB[lv]||lv}`, M.left, y); nl();
+      doc.text(`   ${c} : ${DOTS[lv]||"•"} ${FMB_TEXT[lv]||lv}`, M.left, y); nl();
     });
     nl(6);
 
-    // Individuel
     if ((e.eleves||[]).length){
       ensure(24);
       doc.setFont(undefined,"bold"); doc.text("• Évaluation individuelle (notes /20)", M.left, y); nl(12);
@@ -781,28 +875,25 @@ function renderPDF({mode, team=[]}){
       nl(18);
     }
 
-    // Note finale + commentaire
     const nf = e.noteFinale==null ? "—" : String(Number(e.noteFinale).toFixed(1)).replace(".",",");
     ensure(16); doc.text(`Note finale /20 : ${nf}`, M.left, y); nl();
     if ((e.commentaire||"").trim()){
       wrap(`Commentaire : ${e.commentaire}`, M.maxW).forEach(w=>{ ensure(16); doc.text(w, M.left, y); nl(14); });
     }
 
-    // Séparateur
     ensure(14);
     doc.setDrawColor(220); doc.line(M.left, y, M.right, y); doc.setDrawColor(0); nl(18);
   });
 
-  // Footer paginé
   const total = doc.getNumberOfPages();
   for(let i=1;i<=total;i++){
     doc.setPage(i);
     doc.setFontSize(9); doc.setTextColor(120);
-    doc.text(`${footerText} • Page ${i}/${total} • ${new Date().toLocaleDateString()}`, M.left, M.bottom);
+    doc.text(`ScanProf/AcroJuge – Équipe EPS Lycée Vauban – LUXEMBOURG – JB • Page ${i}/${total} • ${new Date().toLocaleDateString()}`, M.left, M.bottom);
     doc.setTextColor(0);
   }
 
-  doc.save(buildFileNameFromTeam(team));
+  doc.save(buildFileNameFromTeam(team)+".pdf");
 }
 </script>
 </body>
