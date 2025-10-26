@@ -64,7 +64,7 @@
     .note-item .who{font-weight:600}
     .note-item input{width:100px}
 
-    /* ——— PAGE BILAN (imprimable + export PDF) ——— */
+    /* ============ PAGE BILAN (imprimable + export PDF) ============ */
     .print-page{
       background:#fff;border:1px solid var(--border);box-shadow:var(--shadow);
       padding:20px;border-radius:18px;
@@ -83,22 +83,23 @@
     .dot{display:inline-block;width:10px;height:10px;border-radius:999px;margin-right:8px;vertical-align:baseline}
     .dot.red{background:#ef4444}.dot.amber{background:#f59e0b}.dot.green{background:#22c55e}.dot.teal{background:#10b981}
 
-    /* ——— COUVERTURE PDF (DOM offscreen, même style que l’app) ——— */
+    /* ============ COUVERTURE PDF (offscreen, visuel appli) ============ */
     .cover-root{
-      width:794px; height:1123px; /* A4 @96dpi approx, seulement pour html2canvas */
+      width:794px; height:1123px; /* A4 @96dpi approx pour html2canvas */
       display:flex; align-items:center; justify-content:center; flex-direction:column;
       background:linear-gradient(135deg,#ffffff 0%, #f6f8fb 100%);
       color:#0f172a; border:1px solid var(--border); border-radius:18px;
       -webkit-print-color-adjust: exact; print-color-adjust: exact;
-      padding:48px; box-shadow:var(--shadow)
+      padding:48px; box-shadow:var(--shadow); position:fixed; left:-99999px;
     }
     .cover-badge{
       display:inline-block; padding:6px 12px; border-radius:999px; font-weight:800;
       background:#eef2ff; color:#3730a3; border:1px solid #e0e7ff; letter-spacing:.3px; margin-bottom:16px
     }
-    .cover-title{ font-size:36px; font-weight:900; text-align:center; line-height:1.2; margin:0 0 12px 0}
-    .cover-names{ font-size:20px; text-align:center; opacity:.9; margin:0 0 8px 0}
-    .cover-date{ font-size:16px; color:#6b7280; text-align:center }
+    /* — tailles augmentées ici — */
+    .cover-title{ font-size:54px; font-weight:900; text-align:center; line-height:1.12; margin:0 0 14px 0}
+    .cover-names{ font-size:32px; text-align:center; opacity:.95; margin:0 0 10px 0; font-weight:800}
+    .cover-date{ font-size:18px; color:#6b7280; text-align:center }
     .cover-mark{ position:absolute; bottom:22px; left:0; right:0; text-align:center; font-size:12px; color:#6b7280 }
 
     @page{ size:A4; margin:14mm 12mm; }
@@ -142,7 +143,7 @@
   </header>
 
   <main class="main">
-    <!-- PAGE 1 : COVER -->
+    <!-- PAGE 1 : COVER (app) -->
     <section id="page-cover" class="section">
       <div class="hero">
         <div>
@@ -181,7 +182,6 @@
           <div class="muted">Observations créées : <span id="compoCount">0</span></div>
         </div>
         <div class="grid" style="grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-top:8px">
-          <!-- Champs vides par défaut (pas de "0") -->
           <div class="card p2"><label class="muted">Pyramide à 2 ×</label><input type="number" min="0" id="count-p2" placeholder=""></div>
           <div class="card p3"><label class="muted">Pyramide à 3 ×</label><input type="number" min="0" id="count-p3" placeholder=""></div>
           <div class="card p4"><label class="muted">Pyramide à 4 ×</label><input type="number" min="0" id="count-p4" placeholder=""></div>
@@ -310,7 +310,7 @@
         <div class="title">3) Bilan PDF</div>
         <ul>
           <li>Cliquer <b>📑 Bilan</b> pour le récapitulatif.</li>
-          <li><b>📄 Exporter le PDF</b> : page de garde centrée, entête de groupe en haut de page, pas de coupures, visuel fidèle.</li>
+          <li><b>📄 Exporter le PDF</b> : page de garde centrée (titre/prénoms + date), pied de page centré, visuel fidèle.</li>
         </ul>
       </div>
     </div>
@@ -329,7 +329,7 @@
 
 <script>
 /* ===== PERSISTENCE ===== */
-const STORAGE_KEY = "acrojuge_state_ui_v20_cover_centered_footer";
+const STORAGE_KEY = "acrojuge_state_ui_v21_big_cover_no_blank_page";
 function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(app)); }
 function load(){ try{ const raw=localStorage.getItem(STORAGE_KEY); if(raw) Object.assign(app, JSON.parse(raw)); }catch{} }
 function hardReset(){
@@ -408,17 +408,13 @@ document.addEventListener("DOMContentLoaded", async ()=>{
   grpInput.addEventListener("keydown",(e)=>{ if(["Enter",",",";"].includes(e.key)){ e.preventDefault(); addNames("group", grpInput.value); grpInput.value=""; }});
   grpInput.addEventListener("paste",(e)=>{ const t=e.clipboardData?.getData("text")||""; if(/[,\n;]/.test(t)){ e.preventDefault(); addNames("group", t); }});
 
-  // Compteurs (vides par défaut ; vide -> 0)
+  // Compteurs
   ["p2","p3","p4","p5","libre"].forEach(k=>{
     $("count-"+k).addEventListener("input",(e)=>{ app.counts[k] = Math.max(0, Number(e.target.value)||0); save(); });
   });
 
   // Load & migrations
-  load();
-  migrateObserverLists();
-  migrateCompleted();
-  save();
-
+  load(); migrateObserverLists(); migrateCompleted(); save();
   renderAll(); show("cover");
 });
 
@@ -818,7 +814,7 @@ function renderBilan(){
   });
 }
 
-/* ===== EXPORT PDF (COUVERTE + BLOC-BY-BLOC, VISUEL FIDÈLE) ===== */
+/* ===== EXPORT PDF ===== */
 async function exportBilanPDF(){
   const ok = await depsReady.catch(()=>false);
   if(!ok){ alert("Dépendances PDF non chargées."); return; }
@@ -836,27 +832,30 @@ async function exportBilanPDF(){
   const margin = 40;
   let y = margin;
 
-  const orphanAfterHeaderMin = 240; // espace mini après entête de groupe
+  const orphanAfterHeaderMin = 240;
 
-  function centerFooterText(str){
-    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor(120);
-    doc.text(str, pageW/2, pageH - 16, { align: "center", baseline: "alphabetic" });
-    doc.setTextColor(0);
+  function footerTextFor(p,total){
+    return `AcroJuge – Équipe EPS Lycée Vauban – LUXEMBOURG – JB  •  Page ${p}/${total}  •  ${new Date().toLocaleDateString()}`;
   }
-  function addFooterForPage(p){
-    centerFooterText(`AcroJuge – Équipe EPS Lycée Vauban – LUXEMBOURG – JB  •  Page ${p}/${doc.getNumberOfPages()}  •  ${new Date().toLocaleDateString()}`);
+  function drawFooterCentered(p){
+    const total = doc.getNumberOfPages();
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor(120);
+    doc.text(footerTextFor(p,total), pageW/2, pageH - 16, { align:"center", baseline:"alphabetic" });
+    doc.setTextColor(0);
   }
   function newPage(){
     const cur = doc.internal.getCurrentPageInfo().pageNumber;
-    addFooterForPage(cur);
+    drawFooterCentered(cur);
     doc.addPage(); y = margin;
   }
   function spaceLeft(){ return pageH - margin - 20 - y; }
 
-  async function snapEl(el, scale=2){
+  const retinaScale = Math.min(2, window.devicePixelRatio || 1.5);
+
+  async function snapEl(el){
     const canvas = await html2canvas(el, {
       backgroundColor: null,
-      scale,
+      scale: retinaScale,
       useCORS: true,
       windowWidth: document.documentElement.scrollWidth,
       windowHeight: document.documentElement.scrollHeight
@@ -870,7 +869,8 @@ async function exportBilanPDF(){
 
   async function addBlock(el){
     const isHeader = el.dataset && el.dataset.block === "group-header";
-    const { imgData, imgW, imgH, ratio } = await snapEl(el, 2);
+    const shot = await snapEl(el);
+    const { imgData, imgW, imgH, ratio } = shot;
 
     if (isHeader && y !== margin) newPage();
     if (isHeader && spaceLeft() < orphanAfterHeaderMin) newPage();
@@ -878,8 +878,7 @@ async function exportBilanPDF(){
     if (imgH > spaceLeft()){
       const maxH = pageH - margin*2;
       if (imgH > maxH){
-        const fitH = maxH;
-        const fitW = fitH / ratio;
+        const fitH = maxH, fitW = fitH / ratio;
         if (fitH > spaceLeft()) newPage();
         doc.addImage(imgData, "PNG", margin, y, fitW, fitH, undefined, "FAST");
         y += fitH + 8;
@@ -892,14 +891,12 @@ async function exportBilanPDF(){
     y += imgH + 8;
   }
 
-  // (0) Reconstruire le bilan
+  // 0) Construire le bilan (dernière version)
   renderBilan();
 
-  // (1) Construire une COUVERTURE offscreen avec les mêmes styles
+  // 1) COUVERTURE offscreen (gros titre + prénoms + date)
   const cover = document.createElement("div");
   cover.className = "cover-root";
-  cover.style.position = "fixed";
-  cover.style.left = "-99999px";
   cover.innerHTML = `
     <span class="cover-badge">AcroJuge</span>
     <h1 class="cover-title">Dossier d’observation de :</h1>
@@ -909,33 +906,31 @@ async function exportBilanPDF(){
   `;
   document.body.appendChild(cover);
 
-  // (2) Snap la couverture et l’insérer comme PAGE 1 centrée
-  const coverShot = await snapEl(cover, 2);
-  // Ajuste pour remplir la page en conservant le ratio
-  const maxW = pageW - margin*2;
-  const maxH = pageH - margin*2;
+  // 2) Snap couverture → page 1
+  const coverShot = await snapEl(cover);
+  document.body.removeChild(cover);
+  const maxW = pageW - margin*2, maxH = pageH - margin*2;
   let w = coverShot.imgW, h = coverShot.imgH;
   const scale = Math.min(maxW / w, maxH / h);
-  w = w * scale; h = h * scale;
+  w *= scale; h *= scale;
   const x = (pageW - w)/2, top = (pageH - h)/2;
   doc.addImage(coverShot.imgData, "PNG", x, top, w, h, undefined, "FAST");
-  document.body.removeChild(cover);
 
-  // (3) Nouvelle page pour le contenu
-  newPage();
-
-  // (4) Header du “bilan” (petit bandeau en haut)
-  await addBlock(document.querySelector("#page-bilan .print-header"));
-
-  // (5) Tous les blocs (entêtes de groupe + cartes)
+  // 3) Récupérer les blocs (groupes/observations/évaluations)
   const blocks = Array.from(document.querySelectorAll("#bilanContent > *"));
-  for (const b of blocks){ await addBlock(b); }
 
-  // (6) Pieds de page centrés sur toutes les pages
+  // 4) On n’ajoute une page que s’il y a des blocs à rendre
+  if (blocks.length){
+    newPage();
+    // (pas de petit print-header pour éviter une page quasi vide)
+    for (const b of blocks){ await addBlock(b); }
+  }
+
+  // 5) Pieds de page centrés
   const total = doc.getNumberOfPages();
-  for(let p=1;p<=total;p++){ doc.setPage(p); addFooterForPage(p); }
+  for(let p=1;p<=total;p++){ doc.setPage(p); drawFooterCentered(p); }
 
-  // (7) Nom du fichier
+  // 6) Nom de fichier
   const safeTeam = team.join("-").replace(/[^\w-]+/g,"-").replace(/-+/g,"-");
   const date = new Date().toISOString().slice(0,10);
   doc.save(`AcroJuge-${safeTeam||"Observateurs"}-${date}.pdf`);
