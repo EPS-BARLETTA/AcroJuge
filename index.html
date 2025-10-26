@@ -74,7 +74,6 @@
 </head>
 <body>
 <div class="app">
-  <!-- En-tête : Aide + Reset -->
   <header class="header">
     <button class="btn btn-amber" id="btnHelp">❓ Aide</button>
     <button class="btn btn-red" id="btnHardReset">♻️ Reset</button>
@@ -145,7 +144,7 @@
       <div class="nav">
         <button class="btn btn-gray" id="observeBack">⬅️ Configuration</button>
         <div class="row">
-          <button class="btn btn-amber" id="btnMarkDone">💾 Enregistrer l’observation</button>
+          <!-- Bouton Enregistrer supprimé (auto-save) -->
           <button class="btn btn-green" id="observeNext">Évaluations ➡️</button>
         </div>
       </div>
@@ -218,7 +217,7 @@
         <div class="title">2) Observation</div>
         <ul>
           <li>Pour chaque pyramide : <b>Tenue 3s</b> (OUI/NON) et <b>Sécurité</b> par critère (🔴/🟡/🟢/🟩).</li>
-          <li>Appuie sur <b>💾 Enregistrer l’observation</b> pour marquer la fiche comme <b>terminée</b> (sans téléchargement).</li>
+          <li><b>Tout est enregistré automatiquement</b> — aucun téléchargement intermédiaire.</li>
         </ul>
       </div>
       <div class="card">
@@ -227,7 +226,7 @@
           <li><b>Évaluation de l’ensemble</b> : F/M/B/TB pour Composition, Entrée, Sortie, Originalité.</li>
           <li><b>Évaluation individuelle</b> : notes /20 (demi-points possibles), champs vides par défaut.</li>
           <li><b>Nouvelle observation</b> : remet le <b>groupe</b> et le <b>plan</b> à zéro, retour “Configuration”.</li>
-          <li>À la fin, appuie sur <b>📄 Exporter en PDF</b> : un <b>seul document</b> au <b>nom des observateurs</b> avec <b>toutes</b> les observations de l’équipe.</li>
+          <li>À la fin, appuie sur <b>📄 Exporter en PDF</b> : un <b>seul document</b> au <b>nom des observateurs</b> avec <b>toutes</b> les observations (Observations + Évaluations).</li>
         </ul>
       </div>
       <div class="card">
@@ -254,7 +253,7 @@
 
 <script>
 /* ===== PERSISTENCE ===== */
-const STORAGE_KEY = "acrojuge_state_ui_v10_export_team_auto";
+const STORAGE_KEY = "acrojuge_state_ui_v11_auto_save";
 function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(app)); }
 function load(){ try{ const raw=localStorage.getItem(STORAGE_KEY); if(raw) Object.assign(app, JSON.parse(raw)); }catch{} }
 function hardReset(){
@@ -288,18 +287,13 @@ const DEFAULT_SECURITE = [
   "Descente sécurisée",
 ];
 const ENSEMBLE_CRITS = ["Composition","Entrée","Sortie","Originalité"];
-const DOT = { fragile:"🔴", moyen:"🟡", bon:"🟢", tb:"🟩" };
 
 /* ===== DOM ===== */
 const $ = (id)=> document.getElementById(id);
 document.addEventListener("DOMContentLoaded", async ()=>{
-  // Essayez de rendre le stockage persistant (iPad/Safari géré MDM)
+  // Persistance renforcée (iPad / Safari)
   if (navigator.storage && navigator.storage.persist) {
-    try {
-      await navigator.storage.persist();
-    } catch(e) {
-      console.warn("Persist() non accordé :", e);
-    }
+    try { await navigator.storage.persist(); } catch(e) { console.warn("persist() refusé :", e); }
   }
 
   // Navigation
@@ -328,9 +322,6 @@ document.addEventListener("DOMContentLoaded", async ()=>{
     addObservation(true);
   };
 
-  // Enregistrer observation (terminée)
-  $("btnMarkDone").onclick = markObservationDone;
-
   // Export PDF unique (par observateurs détectés automatiquement)
   $("btnExportByObservers").onclick = exportByObserversPDF;
 
@@ -341,7 +332,7 @@ document.addEventListener("DOMContentLoaded", async ()=>{
   grpInput.addEventListener("keydown",(e)=>{ if(["Enter",",",";"].includes(e.key)){ e.preventDefault(); addNames("group", grpInput.value); grpInput.value=""; }});
   grpInput.addEventListener("paste",(e)=>{ const t=e.clipboardData?.getData("text")||""; if(/[,\n;]/.test(t)){ e.preventDefault(); addNames("group", t); }});
 
-  // Counters
+  // Compteurs
   ["p2","p3","p4","p5","libre"].forEach(k=>{
     $("count-"+k).addEventListener("input",(e)=>{ app.counts[k] = Math.max(0, Number(e.target.value)||0); save(); });
   });
@@ -389,6 +380,25 @@ function makePyramide(t){ const sec=Object.fromEntries(DEFAULT_SECURITE.map(s=>[
 function normalizeName(s=""){ return s.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim().replace(/\s+/g," "); }
 function teamKey(arr=[]){ return (arr||[]).map(normalizeName).filter(Boolean).sort().join("|"); }
 function teamLabel(arr=[]){ return (arr||[]).filter(Boolean).join(", "); }
+
+/* Marque auto la fiche comme “completed” si des infos utiles existent */
+function computeCompleted(ev){
+  if(!ev) return false;
+  const hasGroup = (ev.groupeList||[]).length>0;
+  const hasPyrs  = (ev.pyramides||[]).length>0;
+  const anyTenue = (ev.pyramides||[]).some(p=>p.tenue==="oui");
+  const anySecDiff = (ev.pyramides||[]).some(p=>Object.values(p.securite||{}).some(v=>v!=="moyen"));
+  const anyEnsDiff = ev.ensemble && Object.values(ev.ensemble).some(v=>v!=="moyen");
+  const anyIndiv   = (ev.eleves||[]).some(x=>x.note!=null);
+  const hasFinal   = ev.noteFinale!=null || (ev.commentaire||"").trim()!=="";
+  return !!(hasGroup && hasPyrs && (anyTenue || anySecDiff || anyEnsDiff || anyIndiv || hasFinal));
+}
+function touch(ev){
+  ev.completed = computeCompleted(ev);
+  save();
+}
+
+/* ===== MIGRATIONS ===== */
 function migrateObserverLists(){
   let lastTeam = (app.observers || []).filter(Boolean);
   (app.evals || []).forEach(ev=>{
@@ -402,11 +412,7 @@ function migrateObserverLists(){
 function migrateCompleted(){
   (app.evals || []).forEach(ev=>{
     if (ev.completed === undefined){
-      const hasP = (ev.pyramides||[]).length>0;
-      const hasG = (ev.groupeList||[]).length>0;
-      const hasN = (ev.eleves||[]).some(x=>x.note!=null);
-      const hasF = ev.noteFinale!=null || (ev.commentaire||"").trim()!=="";
-      ev.completed = !!(hasP || hasG || hasN || hasF);
+      ev.completed = computeCompleted(ev);
     }
   });
 }
@@ -418,7 +424,7 @@ function countObservationsForTeam(team=[]){
 
 /* ===== EXPORT TEAM DETECTION ===== */
 function buildTeamsIndex(){
-  const map = new Map(); // key -> { names:[], count:number }
+  const map = new Map();
   (app.evals||[]).forEach(ev=>{
     const k = teamKey(ev.observerList||[]);
     if(!k) return;
@@ -471,9 +477,9 @@ function renderObserve(){
   observeContent.appendChild(grpCard);
   const grpEdit=grpCard.querySelector("#grpEdit");
   const grpEditChips=grpCard.querySelector("#grpEditChips");
-  toChips(grpEditChips, ev.groupeList||[], (i)=>{ ev.groupeList.splice(i,1); ev.eleves=syncEleves(ev.eleves, ev.groupeList); renderObserve(); save(); });
-  grpEdit.addEventListener("keydown",(e)=>{ if(["Enter",",",";"].includes(e.key)){ e.preventDefault(); const names=splitNames(grpEdit.value); ev.groupeList=[...(ev.groupeList||[]), ...names.filter(n=>!(ev.groupeList||[]).includes(n))]; ev.eleves=syncEleves(ev.eleves, ev.groupeList); grpEdit.value=""; renderObserve(); save(); }});
-  grpEdit.addEventListener("paste",(e)=>{ const t=e.clipboardData?.getData("text")||""; if(/[,\n;]/.test(t)){ e.preventDefault(); const names=splitNames(t); ev.groupeList=[...(ev.groupeList||[]), ...names.filter(n=>!(ev.groupeList||[]).includes(n))]; ev.eleves=syncEleves(ev.eleves, ev.groupeList); renderObserve(); save(); }});
+  toChips(grpEditChips, ev.groupeList||[], (i)=>{ ev.groupeList.splice(i,1); ev.eleves=syncEleves(ev.eleves, ev.groupeList); touch(ev); renderObserve(); });
+  grpEdit.addEventListener("keydown",(e)=>{ if(["Enter",",",";"].includes(e.key)){ e.preventDefault(); const names=splitNames(grpEdit.value); ev.groupeList=[...(ev.groupeList||[]), ...names.filter(n=>!(ev.groupeList||[]).includes(n))]; ev.eleves=syncEleves(ev.eleves, ev.groupeList); grpEdit.value=""; touch(ev); renderObserve(); }});
+  grpEdit.addEventListener("paste",(e)=>{ const t=e.clipboardData?.getData("text")||""; if(/[,\n;]/.test(t)){ e.preventDefault(); const names=splitNames(t); ev.groupeList=[...(ev.groupeList||[]), ...names.filter(n=>!(ev.groupeList||[]).includes(n))]; ev.eleves=syncEleves(ev.eleves, ev.groupeList); touch(ev); renderObserve(); }});
 
   // Pyramides
   const wrap=document.createElement("div"); wrap.className="grid grid-2";
@@ -506,14 +512,14 @@ function renderObserve(){
       </div>`;
     // Tenue
     el.querySelectorAll("[data-tn]").forEach(btn=>{
-      btn.onclick = ()=>{ p.tenue = btn.getAttribute("data-tn"); ev.completed=false; renderObserve(); save(); };
+      btn.onclick = ()=>{ p.tenue = btn.getAttribute("data-tn"); touch(ev); renderObserve(); };
     });
     // Sécurité F/M/B/TB
     el.querySelectorAll(".fmblist").forEach((rowEl,i)=>{
       rowEl.querySelectorAll("[data-fmb]").forEach(b=>{
         b.onclick = ()=>{
           const val=b.getAttribute("data-fmb"); const crit=DEFAULT_SECURITE[i];
-          p.securite[crit]=val; ev.completed=false; renderObserve(); save();
+          p.securite[crit]=val; touch(ev); renderObserve();
         };
       });
     });
@@ -543,12 +549,12 @@ function renderEvals(){
         <button data-fmb="tb"      class="${ev.ensemble[crit]==='tb'     ?'active':''}">🟩 Très bon</button>
       </div>`;
     card.querySelectorAll("[data-fmb]").forEach(b=>{
-      b.onclick = ()=>{ ev.ensemble[crit] = b.getAttribute("data-fmb"); ev.completed=false; renderEvals(); save(); };
+      b.onclick = ()=>{ ev.ensemble[crit] = b.getAttribute("data-fmb"); touch(ev); renderEvals(); };
     });
     cont.appendChild(card);
   });
 
-  // Individuel (3 par ligne)
+  // Individuel
   const elevesList=$("elevesList");
   elevesList.innerHTML="";
   (ev.eleves||[]).forEach((el, idx)=>{
@@ -560,7 +566,7 @@ function renderEvals(){
     item.querySelector(`[data-note="${idx}"]`).oninput = (e)=>{
       const v=e.target.value;
       const n = v===''? null : Math.min(20, Math.max(0, Math.round((Number(v)||0)*2)/2));
-      el.note = n; ev.completed=false; save();
+      el.note = n; touch(ev);
     };
     elevesList.appendChild(item);
   });
@@ -568,15 +574,15 @@ function renderEvals(){
   // Commentaire / note finale
   const commentaire=$("commentaire"), noteFinale=$("noteFinale");
   commentaire.value = ev.commentaire??"";
-  commentaire.oninput = (e)=>{ ev.commentaire=e.target.value; ev.completed=false; save(); };
+  commentaire.oninput = (e)=>{ ev.commentaire=e.target.value; touch(ev); };
   noteFinale.value = ev.noteFinale ?? "";
   noteFinale.oninput = (e)=>{
     const v=e.target.value;
     const n = v===''? null : Math.min(20, Math.max(0, Math.round((Number(v)||0)*2)/2));
-    ev.noteFinale = n; ev.completed=false; save();
+    ev.noteFinale = n; touch(ev);
   };
 
-  // Indication de l’équipe + N observations incluses
+  // Indication équipe + N observations incluses
   const lab = document.getElementById("exportTeamLabel");
   if(lab){
     const t = getCurrentExportTeam();
@@ -640,15 +646,6 @@ function addObservation(goToObserve){
   app.selectedId = ev.id;
   renderSetup(); renderObserve(); renderEvals(); save();
   if(goToObserve) show("observe");
-}
-
-function markObservationDone(){
-  const ev = app.evals.find(e=>e.id===app.selectedId);
-  if(!ev){ alert("Aucune observation en cours."); return; }
-  ev.completed = true;
-  save();
-  renderObserve(); renderEvals();
-  alert("Observation enregistrée (terminée). Tu peux passer à une nouvelle ou exporter en PDF.");
 }
 
 function newObservationFlow(){
