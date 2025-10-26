@@ -262,7 +262,7 @@
 
 <script>
 /* ===== PERSISTENCE ===== */
-const STORAGE_KEY = "acrojuge_state_ui_v13_bilan_nojson";
+const STORAGE_KEY = "acrojuge_state_ui_v14_bilan_nojson_nocut";
 function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(app)); }
 function load(){ try{ const raw=localStorage.getItem(STORAGE_KEY); if(raw) Object.assign(app, JSON.parse(raw)); }catch{} }
 function hardReset(){
@@ -325,7 +325,7 @@ document.addEventListener("DOMContentLoaded", async ()=>{
   $("btnHardReset").onclick   = hardReset;
   $("btnResetCounts").onclick = ()=>{ app.counts={p2:0,p3:0,p4:0,p5:0,libre:0}; renderSetup(); save(); };
 
-  // Démarrer observation (bloque si pas d’observateurs)
+  // Démarrer observation
   $("btnStartObserve").onclick= ()=>{
     if(!(app.observers && app.observers.filter(Boolean).length)){
       alert("Renseigne d’abord les observateurs (au moins un prénom).");
@@ -334,7 +334,7 @@ document.addEventListener("DOMContentLoaded", async ()=>{
     addObservation(true);
   };
 
-  // Exports bilan
+  // Export bilan
   $("bilanDownloadPDF").onclick = exportBilanPDF;
 
   // Chips (observers / group)
@@ -754,10 +754,11 @@ function exportBilanPDF(){
   renderPDF({ team });
 }
 
-/* ===== PDF ENGINE — blocs non coupés ===== */
+/* ===== PDF ENGINE — anti-coupure granulaire ===== */
 function renderPDF({ team=[] }){
   if(!(window.__HAS_LOCAL_JSPDF__ && window.jspdf)){ window.print(); return; }
   const { jsPDF } = window.jspdf;
+
   const key = teamKey(team);
   const selection = (app.evals || []).filter(e => teamKey(e.observerList || []) === key);
   if(!selection.length){
@@ -777,64 +778,28 @@ function renderPDF({ team=[] }){
     doc.setTextColor(0);
   };
   const newPage = () => { addFooter(); doc.addPage(); y = M.top; };
-  const ensure = (space) => { if (y + space > M.bottom - 20) newPage(); };
+  const spaceLeft = () => (M.bottom - 20 - y);
   const nl = (dy=16) => { y += dy; if (y > M.bottom - 20) newPage(); };
   const wrap = (txt, width)=> doc.splitTextToSize(txt, width);
 
-  /* === Estimation de la hauteur d’un bloc observation (pour éviter la coupure) === */
-  function estimateBlockHeight(e){
+  const LH = 14;   // line-height pour taille 11
+  const LH_T = 18; // gros titres
+  const GAP = 12;  // espace entre sections
+
+  const hLines = (text, maxW)=> wrap(text, maxW).length * LH;
+
+  function estimatePyramideHeight(p){
     let h = 0;
-    const lhSmall = 14;     // line-height pour taille 11
-    const lhTitle = 18;     // titre observation
-    const gapSection = 12;  // espace entre sections
-
-    // Titre du bloc (groupe)
-    h += lhTitle + 6;
-
-    // "OBSERVATIONS"
-    h += gapSection + lhSmall;
-
-    // Pyramides
-    if((e.pyramides||[]).length){
-      e.pyramides.forEach((p)=>{
-        // Ligne titre pyramide
-        h += lhSmall;
-        // Critères sécurité (5 lignes wrap possibles)
-        Object.entries(p.securite||{}).forEach(([crit,lv])=>{
-          // Longueur approximée, on wrappe comme jsPDF le fera
-          const line = `${DOTS[lv]||"•"} ${crit} — ${FMB_TEXT[lv]||lv}`;
-          const lines = wrap(line, M.maxW).length;
-          h += lines * lhSmall;
-        });
-        h += 6; // petit espace après la pyramide
-      });
-    } else {
-      h += lhSmall;
-    }
-
-    // "ÉVALUATIONS"
-    h += 100; // marge de sécurité avant la section suivante + titres + 4 critères FMB
-
-    // Évaluation individuelle
-    const n = (e.eleves||[]).length;
-    if(n){
-      const perRow = 3;
-      const rows = Math.ceil(n / perRow);
-      h += gapSection + lhSmall + rows * 16;
-    }
-
-    // Note finale + commentaire (estimé)
-    h += lhSmall + 2*lhSmall;
-
-    // Séparateur
-    h += 18;
-
+    h += LH; // titre pyramide
+    h += LH; // Tenue 3s
+    Object.entries(p.securite||{}).forEach(([crit,lv])=>{
+      const line = `${DOTS[lv]||"•"} ${crit} — ${FMB_TEXT[lv]||lv}`;
+      h += hLines(line, M.maxW - 16);
+    });
+    h += 6;
     return h;
   }
-  function ensureBlock(e){
-    const need = estimateBlockHeight(e);
-    if(y + need > M.bottom - 20) newPage();
-  }
+  function ensure(need){ if (spaceLeft() < need) newPage(); }
 
   // En-tête global
   doc.setFontSize(20); doc.setFont(undefined, "bold");
@@ -844,54 +809,78 @@ function renderPDF({ team=[] }){
   doc.text(`Date d’export : ${new Date().toLocaleDateString()}`, M.left, y); nl(10);
   doc.setDrawColor(200); doc.line(M.left, y, M.right, y); doc.setDrawColor(0); nl(14);
 
-  // Corps : chaque observation -> bloc non coupé
+  // Corps
   selection.forEach((e, idx) => {
-    ensureBlock(e);  // <<< anti-coupure
-
-    // En-tête observation
+    // Titre du groupe
+    ensure(LH_T + 6);
     doc.setFontSize(14); doc.setFont(undefined, "bold");
     const doneTxt = e.completed ? " (enregistrée ✅)" : "";
     doc.text(`${idx+1}. Groupe observé : ${(e.groupeList||[]).join(", ") || "(à compléter)"}${doneTxt}`, M.left, y); nl(18);
     doc.setFont(undefined, "normal"); doc.setFontSize(11);
 
-    // OBSERVATIONS
+    // OBSERVATIONS (éviter coupure entre titre section et 1re pyramide)
+    const firstP = (e.pyramides||[])[0];
+    const minObsBlock = (LH + GAP) + (firstP ? estimatePyramideHeight(firstP) : LH);
+    ensure(minObsBlock);
+
     doc.setFont(undefined, "bold"); doc.text("OBSERVATIONS", M.left, y); nl(12);
     doc.setFont(undefined, "normal");
+
     if ((e.pyramides||[]).length){
       e.pyramides.forEach((p, iP) => {
+        const need = estimatePyramideHeight(p);
+        ensure(need);
+
         doc.setFont(undefined,"bold");
         doc.text(`• Pyramide ${iP+1} — ${LABEL[p.type]} — Tenue 3s : ${String(p.tenue||"non").toUpperCase()}`, M.left, y); nl();
         doc.setFont(undefined,"normal");
+
         Object.entries(p.securite||{}).forEach(([crit,lv])=>{
           const line = `${DOTS[lv]||"•"} ${crit} — ${FMB_TEXT[lv]||lv}`;
-          wrap(line, M.maxW).forEach(w=>{ doc.text(w, M.left+16, y); nl(14); });
+          wrap(line, M.maxW).forEach(w=>{ doc.text(w, M.left+16, y); nl(LH); });
         });
+
         nl(6);
       });
     } else {
-      doc.text("(Aucune pyramide)", M.left, y); nl(14);
+      ensure(LH);
+      doc.text("(Aucune pyramide)", M.left, y); nl(LH);
     }
 
-    // ÉVALUATIONS
+    // ÉVALUATIONS (éviter coupure entre titre et 1re ligne)
+    ensure(GAP + LH + 4*LH);
+
     doc.setFont(undefined,"bold"); doc.text("ÉVALUATIONS", M.left, y); nl(12);
     doc.setFont(undefined,"normal");
     doc.setFont(undefined,"bold"); doc.text("• Évaluation de l’ensemble", M.left, y); nl(12);
     doc.setFont(undefined,"normal");
     ENSEMBLE_CRITS.forEach((c)=>{
       const lv = (e.ensemble||{})[c] || "moyen";
-      doc.text(`   ${c} : ${DOTS[lv]||"•"} ${FMB_TEXT[lv]||lv}`, M.left, y); nl();
+      ensure(LH);
+      doc.text(`   ${c} : ${DOTS[lv]||"•"} ${FMB_TEXT[lv]||lv}`, M.left, y); nl(LH);
     });
     nl(6);
 
+    // Évaluation individuelle (rangées non coupées)
     if ((e.eleves||[]).length){
+      const perRow = 3;
+      const rows = Math.ceil((e.eleves||[]).length / perRow);
+      const rowH = 16;
+      const minIndiv = (LH + 12) + rowH;
+      ensure(minIndiv);
+
       doc.setFont(undefined,"bold"); doc.text("• Évaluation individuelle (notes /20)", M.left, y); nl(12);
       doc.setFont(undefined,"normal");
-      const perRow = 3;
+
       const colW = M.maxW / perRow;
       const cols = [M.left, M.left + colW, M.left + 2*colW];
+
       (e.eleves||[]).forEach((el, i) => {
+        if (i>0 && i%perRow===0){
+          if (spaceLeft() < rowH) newPage();
+          else nl(rowH);
+        }
         const col = i % perRow;
-        if(col===0 && i>0){ nl(16); }
         const n = el.note==null ? "—" : String(Number(el.note).toFixed(1)).replace(".",",");
         doc.text(`${el.name} : ${n}/20`, cols[col]+4, y);
       });
@@ -899,12 +888,16 @@ function renderPDF({ team=[] }){
     }
 
     const nf = e.noteFinale==null ? "—" : String(Number(e.noteFinale).toFixed(1)).replace(".",",");
+    ensure(LH);
     doc.text(`Note finale /20 : ${nf}`, M.left, y); nl();
     if ((e.commentaire||"").trim()){
-      wrap(`Commentaire : ${e.commentaire}`, M.maxW).forEach(w=>{ doc.text(w, M.left, y); nl(14); });
+      const lines = wrap(`Commentaire : ${e.commentaire}`, M.maxW);
+      ensure(lines.length*LH);
+      lines.forEach(w=>{ doc.text(w, M.left, y); nl(LH); });
     }
 
-    // Séparateur
+    // Séparateur (éviter qu’il tombe seul en bas)
+    if (spaceLeft() < 22) newPage();
     doc.setDrawColor(220); doc.line(M.left, y, M.right, y); doc.setDrawColor(0); nl(18);
   });
 
