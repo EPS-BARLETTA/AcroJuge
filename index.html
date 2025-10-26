@@ -183,7 +183,7 @@
         <div class="row" style="align-items:center">
           <button class="btn btn-blue" id="btnShowList">📂 Enchaînements</button>
           <button class="btn btn-amber" id="btnNewObservation">➕ Nouvelle observation</button>
-          <button class="btn btn-green-dark" id="btnExportByObservers">📄 Exporter en PDF</button>
+          <!-- Bouton Export PDF retiré ici -->
           <button class="btn btn-green" id="btnGoBilan">📑 Bilan</button>
           <span id="exportTeamLabel" class="muted"></span>
         </div>
@@ -203,7 +203,6 @@
         <button class="btn btn-gray" id="bilanBack">⬅️ Retour</button>
         <div class="row">
           <button class="btn btn-green-dark" id="bilanDownloadPDF">📄 Télécharger le Bilan (PDF)</button>
-          <button class="btn btn-blue" id="bilanExportJSON">🗂️ Exporter la sauvegarde affichée (.json)</button>
         </div>
       </div>
     </section>
@@ -243,7 +242,7 @@
         <ul>
           <li>Complète l’évaluation d’ensemble et individuelle.</li>
           <li>Appuie sur <b>📑 Bilan</b> pour voir un récapitulatif clair par groupe observé.</li>
-          <li>En bas du Bilan : <b>PDF</b> et <b>export .json</b> des données affichées.</li>
+          <li>En bas du Bilan : <b>PDF</b> unique avec tout le contenu affiché.</li>
         </ul>
       </div>
     </div>
@@ -263,7 +262,7 @@
 
 <script>
 /* ===== PERSISTENCE ===== */
-const STORAGE_KEY = "acrojuge_state_ui_v12_bilan";
+const STORAGE_KEY = "acrojuge_state_ui_v13_bilan_nojson";
 function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(app)); }
 function load(){ try{ const raw=localStorage.getItem(STORAGE_KEY); if(raw) Object.assign(app, JSON.parse(raw)); }catch{} }
 function hardReset(){
@@ -303,7 +302,6 @@ const FMB_TEXT = { fragile:"Fragile", moyen:"Moyen", bon:"Bon", tb:"Très bon" }
 /* ===== DOM ===== */
 const $ = (id)=> document.getElementById(id);
 document.addEventListener("DOMContentLoaded", async ()=>{
-  // Persistance renforcée (iPad/Safari géré MDM)
   if (navigator.storage && navigator.storage.persist) {
     try { await navigator.storage.persist(); } catch(e) { console.warn("persist() refusé :", e); }
   }
@@ -336,12 +334,8 @@ document.addEventListener("DOMContentLoaded", async ()=>{
     addObservation(true);
   };
 
-  // Export PDF direct depuis Évaluations (équivalent au PDF Bilan)
-  $("btnExportByObservers").onclick = exportByObserversPDF;
-
-  // Bilan exports
+  // Exports bilan
   $("bilanDownloadPDF").onclick = exportBilanPDF;
-  $("bilanExportJSON").onclick  = exportBilanJSON;
 
   // Chips (observers / group)
   const obsInput=$("obsInput"), grpInput=$("grpInput");
@@ -670,7 +664,7 @@ function newObservationFlow(){
   show("setup");
 }
 
-/* ===== BILAN (PAGE + EXPORTS) ===== */
+/* ===== BILAN (PAGE + EXPORT PDF) ===== */
 function getTeamSelection(){
   const team = getCurrentExportTeam();
   const k = teamKey(team);
@@ -754,38 +748,16 @@ function buildFileNameFromTeam(team=[]){
   return `AcroJuge-${safe||"Observateurs"}-${d}`;
 }
 
-function exportBilanJSON(){
-  const { team, selection } = getTeamSelection();
-  if(!selection.length){ alert("Aucune observation à exporter."); return; }
-  const blob = new Blob([JSON.stringify({ observers: team, observations: selection }, null, 2)], {type:"application/json"});
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(blob);
-  a.download=buildFileNameFromTeam(team)+".json";
-  document.body.appendChild(a); a.click(); URL.revokeObjectURL(a.href); a.remove();
-}
-
 function exportBilanPDF(){
   const { team } = getTeamSelection();
   if(!team.length){ alert("Aucune équipe d’observateurs détectée."); return; }
-  // Réutilise le moteur PDF “par observateurs”
-  renderPDF({ mode:"byObservers", team });
+  renderPDF({ team });
 }
 
-/* ===== EXPORT PDF UNIQUE – ÉQUIPE AUTO ===== */
-function exportByObserversPDF(){
-  const team = getCurrentExportTeam();
-  if(!team.length){
-    alert("Aucune équipe d’observateurs trouvée.\nAjoute des observateurs et crée au moins une observation.");
-    return;
-  }
-  renderPDF({ mode:"byObservers", team });
-}
-
-/* ===== PDF ENGINE ===== */
-function renderPDF({mode, team=[]}){
+/* ===== PDF ENGINE — blocs non coupés ===== */
+function renderPDF({ team=[] }){
   if(!(window.__HAS_LOCAL_JSPDF__ && window.jspdf)){ window.print(); return; }
   const { jsPDF } = window.jspdf;
-
   const key = teamKey(team);
   const selection = (app.evals || []).filter(e => teamKey(e.observerList || []) === key);
   if(!selection.length){
@@ -807,8 +779,62 @@ function renderPDF({mode, team=[]}){
   const newPage = () => { addFooter(); doc.addPage(); y = M.top; };
   const ensure = (space) => { if (y + space > M.bottom - 20) newPage(); };
   const nl = (dy=16) => { y += dy; if (y > M.bottom - 20) newPage(); };
-
   const wrap = (txt, width)=> doc.splitTextToSize(txt, width);
+
+  /* === Estimation de la hauteur d’un bloc observation (pour éviter la coupure) === */
+  function estimateBlockHeight(e){
+    let h = 0;
+    const lhSmall = 14;     // line-height pour taille 11
+    const lhTitle = 18;     // titre observation
+    const gapSection = 12;  // espace entre sections
+
+    // Titre du bloc (groupe)
+    h += lhTitle + 6;
+
+    // "OBSERVATIONS"
+    h += gapSection + lhSmall;
+
+    // Pyramides
+    if((e.pyramides||[]).length){
+      e.pyramides.forEach((p)=>{
+        // Ligne titre pyramide
+        h += lhSmall;
+        // Critères sécurité (5 lignes wrap possibles)
+        Object.entries(p.securite||{}).forEach(([crit,lv])=>{
+          // Longueur approximée, on wrappe comme jsPDF le fera
+          const line = `${DOTS[lv]||"•"} ${crit} — ${FMB_TEXT[lv]||lv}`;
+          const lines = wrap(line, M.maxW).length;
+          h += lines * lhSmall;
+        });
+        h += 6; // petit espace après la pyramide
+      });
+    } else {
+      h += lhSmall;
+    }
+
+    // "ÉVALUATIONS"
+    h += 100; // marge de sécurité avant la section suivante + titres + 4 critères FMB
+
+    // Évaluation individuelle
+    const n = (e.eleves||[]).length;
+    if(n){
+      const perRow = 3;
+      const rows = Math.ceil(n / perRow);
+      h += gapSection + lhSmall + rows * 16;
+    }
+
+    // Note finale + commentaire (estimé)
+    h += lhSmall + 2*lhSmall;
+
+    // Séparateur
+    h += 18;
+
+    return h;
+  }
+  function ensureBlock(e){
+    const need = estimateBlockHeight(e);
+    if(y + need > M.bottom - 20) newPage();
+  }
 
   // En-tête global
   doc.setFontSize(20); doc.setFont(undefined, "bold");
@@ -818,9 +844,11 @@ function renderPDF({mode, team=[]}){
   doc.text(`Date d’export : ${new Date().toLocaleDateString()}`, M.left, y); nl(10);
   doc.setDrawColor(200); doc.line(M.left, y, M.right, y); doc.setDrawColor(0); nl(14);
 
-  // Corps : chaque observation -> 2 volets
+  // Corps : chaque observation -> bloc non coupé
   selection.forEach((e, idx) => {
-    ensure(40);
+    ensureBlock(e);  // <<< anti-coupure
+
+    // En-tête observation
     doc.setFontSize(14); doc.setFont(undefined, "bold");
     const doneTxt = e.completed ? " (enregistrée ✅)" : "";
     doc.text(`${idx+1}. Groupe observé : ${(e.groupeList||[]).join(", ") || "(à compléter)"}${doneTxt}`, M.left, y); nl(18);
@@ -831,21 +859,18 @@ function renderPDF({mode, team=[]}){
     doc.setFont(undefined, "normal");
     if ((e.pyramides||[]).length){
       e.pyramides.forEach((p, iP) => {
-        ensure(40);
         doc.setFont(undefined,"bold");
         doc.text(`• Pyramide ${iP+1} — ${LABEL[p.type]} — Tenue 3s : ${String(p.tenue||"non").toUpperCase()}`, M.left, y); nl();
         doc.setFont(undefined,"normal");
         Object.entries(p.securite||{}).forEach(([crit,lv])=>{
           const line = `${DOTS[lv]||"•"} ${crit} — ${FMB_TEXT[lv]||lv}`;
-          wrap(line, M.maxW).forEach(w=>{ ensure(16); doc.text(w, M.left+16, y); nl(14); });
+          wrap(line, M.maxW).forEach(w=>{ doc.text(w, M.left+16, y); nl(14); });
         });
         nl(6);
       });
     } else {
       doc.text("(Aucune pyramide)", M.left, y); nl(14);
     }
-
-    ensure(100);
 
     // ÉVALUATIONS
     doc.setFont(undefined,"bold"); doc.text("ÉVALUATIONS", M.left, y); nl(12);
@@ -854,13 +879,11 @@ function renderPDF({mode, team=[]}){
     doc.setFont(undefined,"normal");
     ENSEMBLE_CRITS.forEach((c)=>{
       const lv = (e.ensemble||{})[c] || "moyen";
-      ensure(16);
       doc.text(`   ${c} : ${DOTS[lv]||"•"} ${FMB_TEXT[lv]||lv}`, M.left, y); nl();
     });
     nl(6);
 
     if ((e.eleves||[]).length){
-      ensure(24);
       doc.setFont(undefined,"bold"); doc.text("• Évaluation individuelle (notes /20)", M.left, y); nl(12);
       doc.setFont(undefined,"normal");
       const perRow = 3;
@@ -868,7 +891,7 @@ function renderPDF({mode, team=[]}){
       const cols = [M.left, M.left + colW, M.left + 2*colW];
       (e.eleves||[]).forEach((el, i) => {
         const col = i % perRow;
-        if(col===0 && i>0){ nl(16); ensure(16); }
+        if(col===0 && i>0){ nl(16); }
         const n = el.note==null ? "—" : String(Number(el.note).toFixed(1)).replace(".",",");
         doc.text(`${el.name} : ${n}/20`, cols[col]+4, y);
       });
@@ -876,12 +899,12 @@ function renderPDF({mode, team=[]}){
     }
 
     const nf = e.noteFinale==null ? "—" : String(Number(e.noteFinale).toFixed(1)).replace(".",",");
-    ensure(16); doc.text(`Note finale /20 : ${nf}`, M.left, y); nl();
+    doc.text(`Note finale /20 : ${nf}`, M.left, y); nl();
     if ((e.commentaire||"").trim()){
-      wrap(`Commentaire : ${e.commentaire}`, M.maxW).forEach(w=>{ ensure(16); doc.text(w, M.left, y); nl(14); });
+      wrap(`Commentaire : ${e.commentaire}`, M.maxW).forEach(w=>{ doc.text(w, M.left, y); nl(14); });
     }
 
-    ensure(14);
+    // Séparateur
     doc.setDrawColor(220); doc.line(M.left, y, M.right, y); doc.setDrawColor(0); nl(18);
   });
 
@@ -889,7 +912,7 @@ function renderPDF({mode, team=[]}){
   for(let i=1;i<=total;i++){
     doc.setPage(i);
     doc.setFontSize(9); doc.setTextColor(120);
-    doc.text(`ScanProf/AcroJuge – Équipe EPS Lycée Vauban – LUXEMBOURG – JB • Page ${i}/${total} • ${new Date().toLocaleDateString()}`, M.left, M.bottom);
+    doc.text(`ScanProf/AcroJuge – Équipe EPS Lycée Vauban – LUXEMBOURG – JB • Page ${i}/${total} • ${new Date().toLocaleDateString()}`, M.left, 820);
     doc.setTextColor(0);
   }
 
