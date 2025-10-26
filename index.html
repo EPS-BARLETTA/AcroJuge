@@ -6,16 +6,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     :root{
-      --bg:#f6f8fb;--card:#fff;--text:#111827;--muted:#6b7280;--border:#e5e7eb;
+      --bg:#f6f8fb;--card:#fff;--text:#0f172a;--muted:#6b7280;--border:#e5e7eb;
       --p2:#e0f2fe;--p3:#dcfce7;--p4:#fef3c7;--p5:#fae8ff;--libre:#f3f4f6;
       --green:#16a34a;--green-dark:#065f46;--red:#ef4444;--amber:#f59e0b;--blue:#2563eb;
+      --ink:#111827;--ink-soft:#374151;--ink-mute:#6b7280;
+      --chip:#eef2ff;--chip-text:#3730a3;
+      --paper:#ffffff;--shadow:0 2px 12px rgba(15,23,42,.06);
     }
     *{box-sizing:border-box}
     html,body{height:100%}
     body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif}
     .app{min-height:100dvh;display:flex;flex-direction:column}
-    .header{position:sticky;top:0;background:#fff;border-bottom:1px solid var(--border);padding:8px 16px;display:flex;gap:8px;align-items:center;justify-content:flex-end;z-index:10}
-    .btn{border:0;border-radius:12px;padding:10px 16px;cursor:pointer;font-weight:700}
+    .header{position:sticky;top:0;background:#fff;border-bottom:1px solid var(--border);padding:10px 16px;display:flex;gap:8px;align-items:center;justify-content:flex-end;z-index:10;box-shadow:var(--shadow)}
+    .btn{border:0;border-radius:12px;padding:10px 16px;cursor:pointer;font-weight:700;letter-spacing:.2px;box-shadow:var(--shadow)}
     .btn-green{background:var(--green);color:#fff}
     .btn-green-dark{background:var(--green-dark);color:#fff}
     .btn-blue{background:var(--blue);color:#fff}
@@ -33,20 +36,20 @@
     .start{font-size:18px;padding:14px 28px;border-radius:16px}
     .row{display:flex;gap:12px;flex-wrap:wrap}
     .col{flex:1 1 320px}
-    .card{background:#fff;border:1px solid var(--border);border-radius:18px;padding:14px}
-    .title{font-weight:700;margin-bottom:8px}
+    .card{background:#fff;border:1px solid var(--border);border-radius:18px;padding:14px;box-shadow:var(--shadow)}
+    .title{font-weight:800;margin-bottom:8px;color:var(--ink)}
     .muted{color:var(--muted);font-size:12px}
     input[type="text"],input[type="number"],textarea{width:100%;border:1px solid var(--border);border-radius:12px;padding:10px;font-size:16px;background:#fff}
     input::placeholder, textarea::placeholder{color:#9ca3af}
     textarea{min-height:84px;resize:vertical}
     .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
-    .chip{background:#f3f4f6;border-radius:999px;padding:6px 10px;font-size:13px;display:inline-flex;gap:8px;align-items:center}
+    .chip{background:var(--chip);color:var(--chip-text);border:1px solid #e0e7ff;border-radius:999px;padding:6px 10px;font-size:13px;display:inline-flex;gap:8px;align-items:center}
     .chip button{border:0;background:transparent;cursor:pointer;color:#6b7280}
     .grid{display:grid;gap:10px}
     .grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}
     .grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}
     .bar{display:flex;justify-content:space-between;align-items:center;gap:10px}
-    .pyr{border:1px solid var(--border);border-radius:16px;padding:12px}
+    .pyr{border:1px solid var(--border);border-radius:16px;padding:12px;background:var(--paper)}
     .p2{background:var(--p2)} .p3{background:var(--p3)} .p4{background:var(--p4)} .p5{background:var(--p5)} .libre{background:var(--libre)}
     .seg{border:1px dashed var(--border);padding:8px;border-radius:12px;margin-top:8px;background:#fff}
     .fmblist button{border:0;border-radius:10px;padding:8px 10px;background:#e5e7eb;cursor:pointer}
@@ -56,21 +59,55 @@
     .hidden{display:none}
     .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);z-index:50;padding:16px}
     .modal.show{display:flex}
-    .modal-card{width:min(900px,95vw);max-height:85vh;overflow:auto;background:#fff;border-radius:18px;border:1px solid var(--border);padding:16px}
+    .modal-card{width:min(900px,95vw);max-height:85vh;overflow:auto;background:#fff;border-radius:18px;border:1px solid var(--border);padding:16px;box-shadow:var(--shadow)}
     .modal-title{font-weight:800;font-size:18px;margin:0 0 10px}
     .list-row{display:flex;gap:8px;align-items:center;justify-content:space-between;border:1px solid var(--border);border-radius:12px;padding:10px;background:#fafafa}
     .note-item{display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:12px;padding:8px;background:#fff}
     .note-item .who{font-weight:600}
     .note-item input{width:100px}
+
+    /* ——— Impression de secours (si le navigateur imprime la page Bilan) ——— */
     @media print{
+      :root{ --border:#e5e7eb; }
       .header,.nav,.no-print,.modal{display:none!important}
       body{background:#fff}
-      .card{break-inside:avoid}
+      .card, .pyr, .seg, .grid>.card {
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+      }
+      .card{box-shadow:none;border:1px solid var(--border)}
+      .pyr, .seg{margin-bottom:8px}
       .footer{display:block!important;position:fixed;bottom:0;left:0;right:0}
     }
   </style>
-  <script>window.__HAS_LOCAL_JSPDF__=false;</script>
-  <script src="libs/jspdf.umd.min.js" onload="window.__HAS_LOCAL_JSPDF__=true" defer></script>
+
+  <!-- Loader jsPDF robuste (local + CDN) -->
+  <script>
+    window.__HAS_LOCAL_JSPDF__ = false;
+
+    function loadScript(src){
+      return new Promise((resolve, reject)=>{
+        const s = document.createElement('script');
+        s.src = src; s.defer = true;
+        s.onload = ()=>resolve();
+        s.onerror = ()=>reject(new Error("Fail to load "+src));
+        document.head.appendChild(s);
+      });
+    }
+    async function ensureJsPDF(){
+      if (window.jspdf && window.jspdf.jsPDF) { window.__HAS_LOCAL_JSPDF__ = true; return true; }
+      try {
+        await loadScript('libs/jspdf.umd.min.js');
+        if (window.jspdf && window.jspdf.jsPDF){ window.__HAS_LOCAL_JSPDF__ = true; return true; }
+      } catch(_) {}
+      try {
+        await loadScript('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js');
+        if (window.jspdf && window.jspdf.jsPDF){ window.__HAS_LOCAL_JSPDF__ = true; return true; }
+      } catch(_) {}
+      window.__HAS_LOCAL_JSPDF__ = false;
+      return false;
+    }
+  </script>
 </head>
 <body>
 <div class="app">
@@ -183,7 +220,7 @@
         <div class="row" style="align-items:center">
           <button class="btn btn-blue" id="btnShowList">📂 Enchaînements</button>
           <button class="btn btn-amber" id="btnNewObservation">➕ Nouvelle observation</button>
-          <!-- Bouton Export PDF retiré ici -->
+          <!-- plus de bouton Export PDF ici -->
           <button class="btn btn-green" id="btnGoBilan">📑 Bilan</button>
           <span id="exportTeamLabel" class="muted"></span>
         </div>
@@ -209,7 +246,7 @@
   </main>
 
   <footer class="footer">
-    AcroJuge - Equipe EPS Lycée Vauban - LUXEMBOURG - JB
+    AcroJuge – Équipe EPS Lycée Vauban – LUXEMBOURG – JB
   </footer>
 </div>
 
@@ -227,22 +264,22 @@
           <li>Ajoute les <b>observateurs</b> (séparés par virgule, point-virgule ou retour à la ligne).</li>
           <li>Ajoute le <b>groupe observé</b> (prénoms) : pour l’évaluation individuelle.</li>
           <li>Renseigne le <b>plan d’enchaînement</b> : nombre de pyramides à 2 / 3 / 4 / 5 / libres.</li>
-          <li>Appuie sur <b>Démarrer l’observation</b> puis complète <b>Observation</b> → <b>Évaluations</b>.</li>
+          <li>Démarre l’observation puis complète <b>Observation</b> → <b>Évaluations</b>.</li>
         </ul>
       </div>
       <div class="card">
         <div class="title">2) Observation</div>
         <ul>
-          <li>Pour chaque pyramide : <b>Tenue 3s</b> (OUI/NON) et <b>Sécurité</b> par critère (🔴/🟡/🟢/🟩).</li>
-          <li><b>Tout est enregistré automatiquement</b> — aucun téléchargement intermédiaire.</li>
+          <li>Pour chaque pyramide : <b>Tenue 3s</b> (OUI/NON) et <b>Sécurité</b> (🔴/🟡/🟢/🟩) par critère.</li>
+          <li><b>Tout est enregistré automatiquement</b>.</li>
         </ul>
       </div>
       <div class="card">
         <div class="title">3) Évaluations & Bilan</div>
         <ul>
           <li>Complète l’évaluation d’ensemble et individuelle.</li>
-          <li>Appuie sur <b>📑 Bilan</b> pour voir un récapitulatif clair par groupe observé.</li>
-          <li>En bas du Bilan : <b>PDF</b> unique avec tout le contenu affiché.</li>
+          <li>Appuie sur <b>📑 Bilan</b> pour le récapitulatif imprimable.</li>
+          <li>En bas du Bilan : <b>PDF</b> unique propre, sans coupures, avec pied de page.</li>
         </ul>
       </div>
     </div>
@@ -262,7 +299,7 @@
 
 <script>
 /* ===== PERSISTENCE ===== */
-const STORAGE_KEY = "acrojuge_state_ui_v14_bilan_nojson_nocut";
+const STORAGE_KEY = "acrojuge_state_ui_v15_propdf";
 function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(app)); }
 function load(){ try{ const raw=localStorage.getItem(STORAGE_KEY); if(raw) Object.assign(app, JSON.parse(raw)); }catch{} }
 function hardReset(){
@@ -748,15 +785,22 @@ function buildFileNameFromTeam(team=[]){
   return `AcroJuge-${safe||"Observateurs"}-${d}`;
 }
 
-function exportBilanPDF(){
+async function exportBilanPDF(){
   const { team } = getTeamSelection();
   if(!team.length){ alert("Aucune équipe d’observateurs détectée."); return; }
+
+  const ok = await ensureJsPDF();
+  if (!ok){
+    alert("jsPDF indisponible. Passage en impression système (PDF) : utilise “Imprimer” → “Enregistrer en PDF”.");
+    renderBilan(); show("bilan");
+    setTimeout(()=> window.print(), 50);
+    return;
+  }
   renderPDF({ team });
 }
 
-/* ===== PDF ENGINE — anti-coupure granulaire ===== */
+/* ===== PDF ENGINE — pro + anti-coupure granulaire ===== */
 function renderPDF({ team=[] }){
-  if(!(window.__HAS_LOCAL_JSPDF__ && window.jspdf)){ window.print(); return; }
   const { jsPDF } = window.jspdf;
 
   const key = teamKey(team);
@@ -766,94 +810,128 @@ function renderPDF({ team=[] }){
     return;
   }
 
+  // Mise en page pro
   const doc = new jsPDF({unit:"pt",format:"a4"});
-  const M = { top:60, left:40, right:555, bottom:820, maxW: 555-40 };
+  const M = { top:64, left:56, right:539, bottom:820, maxW: 539-56 };
   let y = M.top;
 
-  const footerText = "ScanProf/AcroJuge – Équipe EPS Lycée Vauban – LUXEMBOURG – JB";
+  // Palette
+  const C = {
+    ink: [17,24,39],      // #111827
+    mute: [107,114,128],  // #6b7280
+    line: [229,231,235],  // #e5e7eb
+    chip: [238,242,255],  // #eef2ff
+    chipBorder: [224,231,255], // #e0e7ff
+    section: [246,248,251],    // #f6f8fb
+  };
+
+  // Helpers dessin
+  const setFill = (rgb)=> doc.setFillColor.apply(doc, rgb);
+  const setStroke = (rgb)=> doc.setDrawColor.apply(doc, rgb);
+  const setText = (rgb)=> doc.setTextColor.apply(doc, rgb);
+
+  const footerApp = "AcroJuge – Équipe EPS Lycée Vauban – LUXEMBOURG – JB";
   const addFooter = () => {
     const p = doc.getCurrentPageInfo().pageNumber;
-    doc.setFontSize(9); doc.setTextColor(120);
-    doc.text(`${footerText} • Page ${p}/${doc.getNumberOfPages()} • ${new Date().toLocaleDateString()}`, M.left, M.bottom);
-    doc.setTextColor(0);
+    setText(C.mute); doc.setFontSize(9);
+    doc.text(`${footerApp} • Page ${p}/${doc.getNumberOfPages()} • ${new Date().toLocaleDateString()}`, M.left, M.bottom);
+    setText(C.ink);
   };
   const newPage = () => { addFooter(); doc.addPage(); y = M.top; };
   const spaceLeft = () => (M.bottom - 20 - y);
-  const nl = (dy=16) => { y += dy; if (y > M.bottom - 20) newPage(); };
+  const ensure = (need)=>{ if (spaceLeft() < need) newPage(); };
+  const nl = (dy=16)=>{ y += dy; if (y > M.bottom - 20) newPage(); };
   const wrap = (txt, width)=> doc.splitTextToSize(txt, width);
 
-  const LH = 14;   // line-height pour taille 11
-  const LH_T = 18; // gros titres
-  const GAP = 12;  // espace entre sections
+  // Titres
+  doc.setFont("helvetica","bold"); setText(C.ink);
+  doc.setFontSize(22); doc.text("Dossier d’observation", M.left, y); nl(22);
+  doc.setFont("helvetica","normal"); doc.setFontSize(12); setText(C.mute);
+  doc.text(`Observateurs : ${team.join(", ")}`, M.left, y); nl(16);
+  doc.text(`Date d’export : ${new Date().toLocaleDateString()}`, M.left, y); nl(6);
+  setStroke(C.line); doc.line(M.left, y, M.right, y); setStroke(C.ink); nl(14);
+  setText(C.ink);
 
-  const hLines = (text, maxW)=> wrap(text, maxW).length * LH;
+  // Styles
+  const LH = 14, LH_T = 18, GAP = 12;
 
+  // Estimation d’une pyramide (pour éviter les coupures)
+  function hLines(text, maxW){ return wrap(text, maxW).length * LH; }
   function estimatePyramideHeight(p){
     let h = 0;
-    h += LH; // titre pyramide
+    h += LH; // titre
     h += LH; // Tenue 3s
     Object.entries(p.securite||{}).forEach(([crit,lv])=>{
       const line = `${DOTS[lv]||"•"} ${crit} — ${FMB_TEXT[lv]||lv}`;
       h += hLines(line, M.maxW - 16);
     });
-    h += 6;
+    h += 8;
     return h;
   }
-  function ensure(need){ if (spaceLeft() < need) newPage(); }
 
-  // En-tête global
-  doc.setFontSize(20); doc.setFont(undefined, "bold");
-  doc.text(`Dossier d’observation`, M.left, y); nl(20);
-  doc.setFontSize(12); doc.setFont(undefined, "normal");
-  doc.text(`Observateurs : ${team.join(", ")}`, M.left, y); nl();
-  doc.text(`Date d’export : ${new Date().toLocaleDateString()}`, M.left, y); nl(10);
-  doc.setDrawColor(200); doc.line(M.left, y, M.right, y); doc.setDrawColor(0); nl(14);
+  // Carte “section header”
+  function sectionHeader(label){
+    ensure(28);
+    setFill(C.section); setStroke(C.line);
+    doc.roundedRect(M.left, y-12, M.right-M.left, 24, 6, 6, "F");
+    doc.setFont("helvetica","bold"); doc.setFontSize(12); setText(C.ink);
+    doc.text(label, M.left+10, y+3);
+    nl(18);
+  }
+
+  // Carte subtile avec bord
+  function cardStart(){
+    ensure(20);
+    setStroke(C.line);
+    doc.roundedRect(M.left, y-6, M.right-M.left, 12, 8, 8, "S");
+    nl(10);
+  }
+  function cardEnd(){ nl(8); }
 
   // Corps
   selection.forEach((e, idx) => {
-    // Titre du groupe
-    ensure(LH_T + 6);
-    doc.setFontSize(14); doc.setFont(undefined, "bold");
+    // Titre groupe
+    ensure(LH_T + 10);
+    doc.setFont("helvetica","bold"); doc.setFontSize(14); setText(C.ink);
     const doneTxt = e.completed ? " (enregistrée ✅)" : "";
     doc.text(`${idx+1}. Groupe observé : ${(e.groupeList||[]).join(", ") || "(à compléter)"}${doneTxt}`, M.left, y); nl(18);
-    doc.setFont(undefined, "normal"); doc.setFontSize(11);
+    doc.setFont("helvetica","normal"); doc.setFontSize(11);
 
-    // OBSERVATIONS (éviter coupure entre titre section et 1re pyramide)
+    // Observations
     const firstP = (e.pyramides||[])[0];
     const minObsBlock = (LH + GAP) + (firstP ? estimatePyramideHeight(firstP) : LH);
     ensure(minObsBlock);
-
-    doc.setFont(undefined, "bold"); doc.text("OBSERVATIONS", M.left, y); nl(12);
-    doc.setFont(undefined, "normal");
+    sectionHeader("OBSERVATIONS");
 
     if ((e.pyramides||[]).length){
       e.pyramides.forEach((p, iP) => {
         const need = estimatePyramideHeight(p);
         ensure(need);
 
-        doc.setFont(undefined,"bold");
-        doc.text(`• Pyramide ${iP+1} — ${LABEL[p.type]} — Tenue 3s : ${String(p.tenue||"non").toUpperCase()}`, M.left, y); nl();
-        doc.setFont(undefined,"normal");
+        // carte pyramide
+        cardStart();
+        doc.setFont("helvetica","bold");
+        doc.text(`• Pyramide ${iP+1} — ${LABEL[p.type]}`, M.left+10, y); nl(LH);
+        doc.setFont("helvetica","normal");
+        doc.text(`Tenue 3s : ${String(p.tenue||"non").toUpperCase()}`, M.left+10, y); nl(LH);
 
         Object.entries(p.securite||{}).forEach(([crit,lv])=>{
           const line = `${DOTS[lv]||"•"} ${crit} — ${FMB_TEXT[lv]||lv}`;
-          wrap(line, M.maxW).forEach(w=>{ doc.text(w, M.left+16, y); nl(LH); });
+          wrap(line, M.maxW-26).forEach(w=>{ doc.text(w, M.left+26, y); nl(LH); });
         });
-
-        nl(6);
+        cardEnd();
       });
     } else {
-      ensure(LH);
       doc.text("(Aucune pyramide)", M.left, y); nl(LH);
     }
 
-    // ÉVALUATIONS (éviter coupure entre titre et 1re ligne)
+    // Évaluations
     ensure(GAP + LH + 4*LH);
+    sectionHeader("ÉVALUATIONS");
 
-    doc.setFont(undefined,"bold"); doc.text("ÉVALUATIONS", M.left, y); nl(12);
-    doc.setFont(undefined,"normal");
-    doc.setFont(undefined,"bold"); doc.text("• Évaluation de l’ensemble", M.left, y); nl(12);
-    doc.setFont(undefined,"normal");
+    // Ensemble
+    doc.setFont("helvetica","bold"); doc.text("• Évaluation de l’ensemble", M.left, y); nl(12);
+    doc.setFont("helvetica","normal");
     ENSEMBLE_CRITS.forEach((c)=>{
       const lv = (e.ensemble||{})[c] || "moyen";
       ensure(LH);
@@ -861,19 +939,14 @@ function renderPDF({ team=[] }){
     });
     nl(6);
 
-    // Évaluation individuelle (rangées non coupées)
+    // Individuelle
     if ((e.eleves||[]).length){
-      const perRow = 3;
-      const rows = Math.ceil((e.eleves||[]).length / perRow);
-      const rowH = 16;
-      const minIndiv = (LH + 12) + rowH;
-      ensure(minIndiv);
-
-      doc.setFont(undefined,"bold"); doc.text("• Évaluation individuelle (notes /20)", M.left, y); nl(12);
-      doc.setFont(undefined,"normal");
-
+      const perRow = 3, rowH = 16;
       const colW = M.maxW / perRow;
       const cols = [M.left, M.left + colW, M.left + 2*colW];
+
+      doc.setFont("helvetica","bold"); doc.text("• Évaluation individuelle (notes /20)", M.left, y); nl(12);
+      doc.setFont("helvetica","normal");
 
       (e.eleves||[]).forEach((el, i) => {
         if (i>0 && i%perRow===0){
@@ -896,17 +969,14 @@ function renderPDF({ team=[] }){
       lines.forEach(w=>{ doc.text(w, M.left, y); nl(LH); });
     }
 
-    // Séparateur (éviter qu’il tombe seul en bas)
+    // séparateur fin de bloc
     if (spaceLeft() < 22) newPage();
-    doc.setDrawColor(220); doc.line(M.left, y, M.right, y); doc.setDrawColor(0); nl(18);
+    setStroke(C.line); doc.line(M.left, y, M.right, y); setStroke(C.ink); nl(18);
   });
 
   const total = doc.getNumberOfPages();
   for(let i=1;i<=total;i++){
-    doc.setPage(i);
-    doc.setFontSize(9); doc.setTextColor(120);
-    doc.text(`ScanProf/AcroJuge – Équipe EPS Lycée Vauban – LUXEMBOURG – JB • Page ${i}/${total} • ${new Date().toLocaleDateString()}`, M.left, 820);
-    doc.setTextColor(0);
+    doc.setPage(i); addFooter();
   }
 
   doc.save(buildFileNameFromTeam(team)+".pdf");
