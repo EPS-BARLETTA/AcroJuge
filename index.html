@@ -64,7 +64,7 @@
     .note-item .who{font-weight:600}
     .note-item input{width:100px}
 
-    /* ——— PAGE BILAN (IMPRIMABLE ET “SNAPSHOTTÉE” EN PDF) ——— */
+    /* ——— PAGE BILAN (imprimable + export PDF) ——— */
     .print-page{
       background:#fff;border:1px solid var(--border);box-shadow:var(--shadow);
       padding:20px;border-radius:18px;
@@ -79,10 +79,10 @@
     }
     .print-card{border:1px solid var(--border);border-radius:14px;padding:12px;margin-bottom:12px;background:#fff}
     .avoid-break{break-inside:avoid;page-break-inside:avoid}
+    .group-start{break-before:page;page-break-before:always} /* pour l’impression */
     .dot{display:inline-block;width:10px;height:10px;border-radius:999px;margin-right:8px;vertical-align:baseline}
     .dot.red{background:#ef4444}.dot.amber{background:#f59e0b}.dot.green{background:#22c55e}.dot.teal{background:#10b981}
 
-    /* Impression (secours uniquement) */
     @page{ size:A4; margin:14mm 12mm; }
     @media print{
       .header,.nav,.no-print,.modal{display:none!important}
@@ -96,9 +96,8 @@
     }
   </style>
 
-  <!-- Dépendances pour export PDF fidèle au visuel -->
+  <!-- Dépendances PDF visuel fidèle -->
   <script>
-    // Promesse de chargement de scripts (CDN)
     function loadScript(src){
       return new Promise((resolve, reject)=>{
         const s=document.createElement('script'); s.src=src; s.defer=true;
@@ -106,7 +105,6 @@
         document.head.appendChild(s);
       });
     }
-    // On charge html2canvas puis jsPDF en cdn
     const depsReady = (async ()=>{
       if(!("html2canvas" in window)){
         await loadScript("https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js");
@@ -165,11 +163,12 @@
           <div class="muted">Observations créées : <span id="compoCount">0</span></div>
         </div>
         <div class="grid" style="grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-top:8px">
-          <div class="card p2"><label class="muted">Pyramide à 2 ×</label><input type="number" min="0" id="count-p2" value="0"></div>
-          <div class="card p3"><label class="muted">Pyramide à 3 ×</label><input type="number" min="0" id="count-p3" value="0"></div>
-          <div class="card p4"><label class="muted">Pyramide à 4 ×</label><input type="number" min="0" id="count-p4" value="0"></div>
-          <div class="card p5"><label class="muted">Pyramide à 5 ×</label><input type="number" min="0" id="count-p5" value="0"></div>
-          <div class="card libre"><label class="muted">Pyramide libre ×</label><input type="number" min="0" id="count-libre" value="0"></div>
+          <!-- Champs SANS valeur par défaut (vides) -->
+          <div class="card p2"><label class="muted">Pyramide à 2 ×</label><input type="number" min="0" id="count-p2" placeholder=""></div>
+          <div class="card p3"><label class="muted">Pyramide à 3 ×</label><input type="number" min="0" id="count-p3" placeholder=""></div>
+          <div class="card p4"><label class="muted">Pyramide à 4 ×</label><input type="number" min="0" id="count-p4" placeholder=""></div>
+          <div class="card p5"><label class="muted">Pyramide à 5 ×</label><input type="number" min="0" id="count-p5" placeholder=""></div>
+          <div class="card libre"><label class="muted">Pyramide libre ×</label><input type="number" min="0" id="count-libre" placeholder=""></div>
         </div>
         <div class="row" style="margin-top:8px">
           <button class="btn btn-gray" id="btnResetCounts">Réinitialiser</button>
@@ -294,7 +293,7 @@
         <div class="title">3) Bilan PDF pro</div>
         <ul>
           <li>Cliquer <b>📑 Bilan</b> pour le récapitulatif.</li>
-          <li><b>📄 Exporter PDF (pro)</b> : sans en-têtes navigateur, couleurs fidèles, blocs non coupés.</li>
+          <li><b>📄 Exporter PDF (pro)</b> : sans en-têtes navigateur, couleurs fidèles, blocs non coupés, entête de groupe en haut de page.</li>
         </ul>
       </div>
     </div>
@@ -313,7 +312,7 @@
 
 <script>
 /* ===== PERSISTENCE ===== */
-const STORAGE_KEY = "acrojuge_state_ui_v17_canvas_pro_pdf";
+const STORAGE_KEY = "acrojuge_state_ui_v18_header_page_start";
 function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(app)); }
 function load(){ try{ const raw=localStorage.getItem(STORAGE_KEY); if(raw) Object.assign(app, JSON.parse(raw)); }catch{} }
 function hardReset(){
@@ -394,7 +393,7 @@ document.addEventListener("DOMContentLoaded", async ()=>{
   grpInput.addEventListener("keydown",(e)=>{ if(["Enter",",",";"].includes(e.key)){ e.preventDefault(); addNames("group", grpInput.value); grpInput.value=""; }});
   grpInput.addEventListener("paste",(e)=>{ const t=e.clipboardData?.getData("text")||""; if(/[,\n;]/.test(t)){ e.preventDefault(); addNames("group", t); }});
 
-  // Compteurs
+  // Compteurs (vides par défaut ; vide -> 0)
   ["p2","p3","p4","p5","libre"].forEach(k=>{
     $("count-"+k).addEventListener("input",(e)=>{ app.counts[k] = Math.max(0, Number(e.target.value)||0); save(); });
   });
@@ -512,7 +511,12 @@ function renderSetup(){
   toChips($("obsChips"), app.observers, (i)=>{ app.observers.splice(i,1); renderSetup(); save(); });
   toChips($("grpChips"), app.group, (i)=>{ app.group.splice(i,1); renderSetup(); save(); });
   $("compoCount").textContent = app.evals.length;
-  ["p2","p3","p4","p5","libre"].forEach(k=>{ $("count-"+k).value = app.counts[k]; });
+  // ne pas forcer 0 dans les inputs visibles
+  ["p2","p3","p4","p5","libre"].forEach(k=>{
+    const v = app.counts[k];
+    const el = $("count-"+k);
+    el.value = v>0 ? v : "";
+  });
 }
 
 function renderObserve(){
@@ -704,7 +708,7 @@ function newObservationFlow(){
   show("setup");
 }
 
-/* ===== BILAN (PAGE + EXPORT PDF) ===== */
+/* ===== BILAN (construction) ===== */
 function getTeamSelection(){
   const team = getCurrentExportTeam();
   const k = teamKey(team);
@@ -724,8 +728,10 @@ function renderBilan(){
   }
 
   selection.forEach((e, idx)=>{
+    // Entête de groupe : doit commencer une nouvelle page à l’impression
     const header = document.createElement("div");
-    header.className = "print-section avoid-break";
+    header.className = "print-section avoid-break" + (idx>0 ? " group-start" : "");
+    header.dataset.block = "group-header";
     header.textContent = `#${idx+1} — Groupe observé : ${(e.groupeList||[]).join(", ")||"(à compléter)"} ${e.completed? '✅':''}`;
     cont.appendChild(header);
 
@@ -799,7 +805,7 @@ function renderBilan(){
   });
 }
 
-/* ===== EXPORT PDF PRO (html2canvas + jsPDF) ===== */
+/* ===== EXPORT PDF (html2canvas + jsPDF) ===== */
 async function exportBilanPDF(){
   const ok = await depsReady.catch(()=>false);
   if(!ok){ alert("Impossible de charger les dépendances PDF."); return; }
@@ -811,10 +817,9 @@ async function exportBilanPDF(){
   const doc = new jsPDF({ unit: "pt", format: "a4" }); // 595 x 842 pt
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
-  const margin = 40; // marges internes PDF
+  const margin = 40;
   let y = margin;
 
-  // Pied de page pro (ajouté à la fin sur chaque page)
   function addFooter(p){
     doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor(120);
     doc.text(`AcroJuge – Équipe EPS Lycée Vauban – LUXEMBOURG – JB  •  Page ${p}/${doc.getNumberOfPages()}  •  ${new Date().toLocaleDateString()}`, margin, pageH - 16);
@@ -823,16 +828,11 @@ async function exportBilanPDF(){
   function newPage(){ addFooter(doc.internal.getCurrentPageInfo().pageNumber); doc.addPage(); y = margin; }
   function spaceLeft(){ return pageH - margin - 20 - y; }
 
-  // Prend un élément DOM, le snapshotte en canvas (2x), et l'insère dans le PDF en respectant la largeur
-  async function snapAndAdd(el){
-    const rect = el.getBoundingClientRect();
-    // Canvas 2x pour netteté
-    const scale = 2;
+  async function snap(el, scale=2){
     const canvas = await html2canvas(el, {
       backgroundColor: null,
       scale,
       useCORS: true,
-      // Scroll dans le viewport pour iPad
       windowWidth: document.documentElement.scrollWidth,
       windowHeight: document.documentElement.scrollHeight
     });
@@ -840,44 +840,49 @@ async function exportBilanPDF(){
     const imgW = pageW - margin*2;
     const ratio = canvas.height / canvas.width;
     const imgH = imgW * ratio;
+    return { imgData, imgW, imgH };
+  }
 
-    // Saut de page si ça ne tient pas
-    if (imgH > spaceLeft()){
-      if (imgH > (pageH - margin*2)){ // trop grand pour une page → on réduit un peu
+  async function addBlock(el){
+    const isHeader = el.dataset && el.dataset.block === "group-header";
+    const { imgData, imgW, imgH } = await snap(el, 2);
+
+    // Règle anti-orphelin : si c'est un header de groupe et qu'il reste peu d'espace,
+    // on force une nouvelle page AVANT d'ajouter l'entête, même s'il "rentre".
+    const orphanThreshold = 200; // px PDF restants minimum souhaités après un header
+    if (isHeader && spaceLeft() < orphanThreshold){
+      newPage();
+    } else if (imgH > spaceLeft()){
+      // Comportement standard si le bloc est trop grand
+      if (imgH > (pageH - margin*2)){ // bloc > 1 page → on réduit pour tenir 1 page
         const fitH = pageH - margin*2;
-        const fitW = fitH / ratio;
+        const fitW = fitH / (imgH/imgW);
         if (fitH > spaceLeft()) newPage();
         doc.addImage(imgData, "PNG", margin, y, fitW, fitH, undefined, "FAST");
         y += fitH + 8;
+        return;
       } else {
         newPage();
-        doc.addImage(imgData, "PNG", margin, y, imgW, imgH, undefined, "FAST");
-        y += imgH + 8;
       }
-    } else {
-      doc.addImage(imgData, "PNG", margin, y, imgW, imgH, undefined, "FAST");
-      y += imgH + 8;
     }
+
+    doc.addImage(imgData, "PNG", margin, y, imgW, imgH, undefined, "FAST");
+    y += imgH + 8;
   }
 
-  // En-tête du document
-  const header = document.querySelector("#page-bilan .print-header");
-  const blocks = Array.from(document.querySelectorAll("#bilanContent > *")); // chaque section/ carte est un bloc
-  const footer = document.querySelector(".print-footer"); // pas snapshotté (on a un footer PDF)
+  // Snap header fixe du dossier
+  await addBlock(document.querySelector("#page-bilan .print-header"));
 
-  // Snap header
-  await snapAndAdd(header);
-
-  // Snap chaque bloc (évite toute coupure)
+  // Snap séquentiel des blocs du bilan
+  const blocks = Array.from(document.querySelectorAll("#bilanContent > *")); // entêtes + cartes
   for (const b of blocks){
-    await snapAndAdd(b);
+    await addBlock(b);
   }
 
-  // Footer sur toutes les pages
+  // Footers sur toutes les pages
   const total = doc.getNumberOfPages();
   for(let p=1;p<=total;p++){ doc.setPage(p); addFooter(p); }
 
-  // Nom de fichier : Observateurs-YYYY-MM-DD
   const safeTeam = team.join("-").replace(/[^\w-]+/g,"-").replace(/-+/g,"-");
   const date = new Date().toISOString().slice(0,10);
   doc.save(`AcroJuge-${safeTeam||"Observateurs"}-${date}.pdf`);
