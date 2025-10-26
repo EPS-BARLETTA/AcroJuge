@@ -96,7 +96,7 @@
     }
   </style>
 
-  <!-- Dépendances PDF visuel fidèle -->
+  <!-- Dépendances PDF (visuel fidèle) -->
   <script>
     function loadScript(src){
       return new Promise((resolve, reject)=>{
@@ -163,7 +163,7 @@
           <div class="muted">Observations créées : <span id="compoCount">0</span></div>
         </div>
         <div class="grid" style="grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-top:8px">
-          <!-- Champs SANS valeur par défaut (vides) -->
+          <!-- Champs vides par défaut (pas de "0") -->
           <div class="card p2"><label class="muted">Pyramide à 2 ×</label><input type="number" min="0" id="count-p2" placeholder=""></div>
           <div class="card p3"><label class="muted">Pyramide à 3 ×</label><input type="number" min="0" id="count-p3" placeholder=""></div>
           <div class="card p4"><label class="muted">Pyramide à 4 ×</label><input type="number" min="0" id="count-p4" placeholder=""></div>
@@ -228,7 +228,7 @@
         <div class="row" style="align-items:center">
           <button class="btn btn-blue" id="btnShowList">📂 Enchaînements</button>
           <button class="btn btn-amber" id="btnNewObservation">➕ Nouvelle observation</button>
-          <button class="btn btn-green" id="btnGoBilan">📑 Bilan (PDF Pro)</button>
+          <button class="btn btn-green" id="btnGoBilan">📑 Bilan (PDF)</button>
           <span id="exportTeamLabel" class="muted"></span>
         </div>
       </div>
@@ -250,8 +250,8 @@
         <div class="nav" style="margin-top:14px">
           <button class="btn btn-gray" id="bilanBack">⬅️ Retour</button>
           <div class="row">
-            <button class="btn btn-green-dark" id="bilanExportPDF">📄 Exporter PDF (pro)</button>
-            <button class="btn btn-blue" id="bilanPrint">🖨️ Imprimer (secours)</button>
+            <!-- Un seul bouton d’export -->
+            <button class="btn btn-green-dark" id="bilanExportPDF">📄 Exporter le PDF</button>
           </div>
         </div>
       </div>
@@ -290,10 +290,10 @@
         </ul>
       </div>
       <div class="card">
-        <div class="title">3) Bilan PDF pro</div>
+        <div class="title">3) Bilan PDF</div>
         <ul>
           <li>Cliquer <b>📑 Bilan</b> pour le récapitulatif.</li>
-          <li><b>📄 Exporter PDF (pro)</b> : sans en-têtes navigateur, couleurs fidèles, blocs non coupés, entête de groupe en haut de page.</li>
+          <li><b>📄 Exporter le PDF</b> : visuel fidèle, entête de groupe en haut de page, pas de coupures.</li>
         </ul>
       </div>
     </div>
@@ -312,7 +312,7 @@
 
 <script>
 /* ===== PERSISTENCE ===== */
-const STORAGE_KEY = "acrojuge_state_ui_v18_header_page_start";
+const STORAGE_KEY = "acrojuge_state_ui_v19_single_export_button";
 function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(app)); }
 function load(){ try{ const raw=localStorage.getItem(STORAGE_KEY); if(raw) Object.assign(app, JSON.parse(raw)); }catch{} }
 function hardReset(){
@@ -364,7 +364,6 @@ document.addEventListener("DOMContentLoaded", async ()=>{
   $("btnNewObservation").onclick = newObservationFlow;
   $("btnGoBilan").onclick  = ()=> { renderBilan(); show("bilan"); };
   $("bilanBack").onclick   = ()=> show("evals");
-  $("bilanPrint").onclick  = ()=> window.print();
   $("bilanExportPDF").onclick = exportBilanPDF;
 
   // Modals
@@ -728,7 +727,7 @@ function renderBilan(){
   }
 
   selection.forEach((e, idx)=>{
-    // Entête de groupe : doit commencer une nouvelle page à l’impression
+    // Entête de groupe : en haut de page à l’impression
     const header = document.createElement("div");
     header.className = "print-section avoid-break" + (idx>0 ? " group-start" : "");
     header.dataset.block = "group-header";
@@ -805,12 +804,15 @@ function renderBilan(){
   });
 }
 
-/* ===== EXPORT PDF (html2canvas + jsPDF) ===== */
+/* ===== EXPORT PDF (UN SEUL BOUTON) ===== */
 async function exportBilanPDF(){
   const ok = await depsReady.catch(()=>false);
-  if(!ok){ alert("Impossible de charger les dépendances PDF."); return; }
+  if(!ok){ alert("Dépendances PDF non chargées."); return; }
 
-  const { team } = getTeamSelection();
+  const team = (function(){
+    const t = getCurrentExportTeam();
+    return (t||[]).filter(Boolean);
+  })();
   if(!team.length){ alert("Aucune équipe d’observateurs détectée."); return; }
 
   const { jsPDF } = window.jspdf;
@@ -820,15 +822,21 @@ async function exportBilanPDF(){
   const margin = 40;
   let y = margin;
 
+  const orphanAfterHeaderMin = 240; // espace mini à garder après l’entête
+
   function addFooter(p){
     doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor(120);
     doc.text(`AcroJuge – Équipe EPS Lycée Vauban – LUXEMBOURG – JB  •  Page ${p}/${doc.getNumberOfPages()}  •  ${new Date().toLocaleDateString()}`, margin, pageH - 16);
     doc.setTextColor(0);
   }
-  function newPage(){ addFooter(doc.internal.getCurrentPageInfo().pageNumber); doc.addPage(); y = margin; }
+  function newPage(){
+    const cur = doc.internal.getCurrentPageInfo().pageNumber;
+    addFooter(cur);
+    doc.addPage(); y = margin;
+  }
   function spaceLeft(){ return pageH - margin - 20 - y; }
 
-  async function snap(el, scale=2){
+  async function renderAsImage(el, scale=2){
     const canvas = await html2canvas(el, {
       backgroundColor: null,
       scale,
@@ -837,49 +845,44 @@ async function exportBilanPDF(){
       windowHeight: document.documentElement.scrollHeight
     });
     const imgData = canvas.toDataURL("image/png");
-    const imgW = pageW - margin*2;
+    const fullW = pageW - margin*2;
     const ratio = canvas.height / canvas.width;
-    const imgH = imgW * ratio;
-    return { imgData, imgW, imgH };
+    const fullH = fullW * ratio;
+    return { imgData, imgW: fullW, imgH: fullH, ratio };
   }
 
   async function addBlock(el){
     const isHeader = el.dataset && el.dataset.block === "group-header";
-    const { imgData, imgW, imgH } = await snap(el, 2);
+    const { imgData, imgW, imgH, ratio } = await renderAsImage(el, 2);
 
-    // Règle anti-orphelin : si c'est un header de groupe et qu'il reste peu d'espace,
-    // on force une nouvelle page AVANT d'ajouter l'entête, même s'il "rentre".
-    const orphanThreshold = 200; // px PDF restants minimum souhaités après un header
-    if (isHeader && spaceLeft() < orphanThreshold){
-      newPage();
-    } else if (imgH > spaceLeft()){
-      // Comportement standard si le bloc est trop grand
-      if (imgH > (pageH - margin*2)){ // bloc > 1 page → on réduit pour tenir 1 page
-        const fitH = pageH - margin*2;
-        const fitW = fitH / (imgH/imgW);
+    // entêtes : toujours en haut d’une page (sauf tout début)
+    if (isHeader && y !== margin) newPage();
+    if (isHeader && spaceLeft() < orphanAfterHeaderMin) newPage();
+
+    if (imgH > spaceLeft()){
+      const maxH = pageH - margin*2;
+      if (imgH > maxH){
+        const fitH = maxH;
+        const fitW = fitH / ratio;
         if (fitH > spaceLeft()) newPage();
         doc.addImage(imgData, "PNG", margin, y, fitW, fitH, undefined, "FAST");
         y += fitH + 8;
         return;
-      } else {
-        newPage();
       }
+      newPage();
     }
 
     doc.addImage(imgData, "PNG", margin, y, imgW, imgH, undefined, "FAST");
     y += imgH + 8;
   }
 
-  // Snap header fixe du dossier
+  // reconstruire le bilan pour être sûr d’avoir la dernière version
+  renderBilan();
+
   await addBlock(document.querySelector("#page-bilan .print-header"));
+  const blocks = Array.from(document.querySelectorAll("#bilanContent > *"));
+  for (const b of blocks) await addBlock(b);
 
-  // Snap séquentiel des blocs du bilan
-  const blocks = Array.from(document.querySelectorAll("#bilanContent > *")); // entêtes + cartes
-  for (const b of blocks){
-    await addBlock(b);
-  }
-
-  // Footers sur toutes les pages
   const total = doc.getNumberOfPages();
   for(let p=1;p<=total;p++){ doc.setPage(p); addFooter(p); }
 
