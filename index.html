@@ -292,7 +292,16 @@ const DOT = { fragile:"🔴", moyen:"🟡", bon:"🟢", tb:"🟩" };
 
 /* ===== DOM ===== */
 const $ = (id)=> document.getElementById(id);
-document.addEventListener("DOMContentLoaded", ()=>{
+document.addEventListener("DOMContentLoaded", async ()=>{
+  // Essayez de rendre le stockage persistant (iPad/Safari géré MDM)
+  if (navigator.storage && navigator.storage.persist) {
+    try {
+      await navigator.storage.persist();
+    } catch(e) {
+      console.warn("Persist() non accordé :", e);
+    }
+  }
+
   // Navigation
   $("goSetup").onclick     = ()=> show("setup");
   $("observeBack").onclick = ()=> show("setup");
@@ -337,7 +346,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
     $("count-"+k).addEventListener("input",(e)=>{ app.counts[k] = Math.max(0, Number(e.target.value)||0); save(); });
   });
 
-  // Chargement + migration
+  // Chargement + migrations
   load();
   migrateObserverLists();
   migrateCompleted();
@@ -380,9 +389,7 @@ function makePyramide(t){ const sec=Object.fromEntries(DEFAULT_SECURITE.map(s=>[
 function normalizeName(s=""){ return s.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim().replace(/\s+/g," "); }
 function teamKey(arr=[]){ return (arr||[]).map(normalizeName).filter(Boolean).sort().join("|"); }
 function teamLabel(arr=[]){ return (arr||[]).filter(Boolean).join(", "); }
-function slugifyNames(arr){ return (arr||[]).map(n=>n.normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-zA-Z0-9]+/g,"_").replace(/^_|_$/g,"")).filter(Boolean).join("_")||"Observateurs"; }
 function migrateObserverLists(){
-  // Remplit les observerList vides avec la dernière équipe connue (ou équipe courante)
   let lastTeam = (app.observers || []).filter(Boolean);
   (app.evals || []).forEach(ev=>{
     if(!ev.observerList || ev.observerList.filter(Boolean).length===0){
@@ -393,7 +400,6 @@ function migrateObserverLists(){
   });
 }
 function migrateCompleted(){
-  // Marque “completed” si la fiche contient des infos utiles
   (app.evals || []).forEach(ev=>{
     if (ev.completed === undefined){
       const hasP = (ev.pyramides||[]).length>0;
@@ -403,6 +409,11 @@ function migrateCompleted(){
       ev.completed = !!(hasP || hasG || hasN || hasF);
     }
   });
+}
+function countObservationsForTeam(team=[]){
+  const k = teamKey(team);
+  if(!k) return 0;
+  return (app.evals||[]).filter(e => teamKey(e.observerList||[])===k).length;
 }
 
 /* ===== EXPORT TEAM DETECTION ===== */
@@ -417,20 +428,16 @@ function buildTeamsIndex(){
   return map;
 }
 function getCurrentExportTeam(){
-  // 1) si une fiche est sélectionnée -> son équipe
   const cur = (app.evals||[]).find(e=>e.id===app.selectedId);
   if(cur && (cur.observerList||[]).length) return [...cur.observerList];
-  // 2) si l’équipe de la config existe réellement dans les observations -> ok
   const idx = buildTeamsIndex();
   const confKey = teamKey(app.observers||[]);
   if(confKey && idx.has(confKey)) return [...(idx.get(confKey).names||[])];
-  // 3) sinon, l’équipe la plus fréquente
   let best = null; let bestCount = -1;
   for (const [, val] of idx.entries()){
     if(val.count > bestCount){ best = val; bestCount = val.count; }
   }
   if(best) return [...(best.names||[])];
-  // 4) sinon, vide
   return [];
 }
 
@@ -541,7 +548,7 @@ function renderEvals(){
     cont.appendChild(card);
   });
 
-  // Individuel (3 par ligne, champs vides)
+  // Individuel (3 par ligne)
   const elevesList=$("elevesList");
   elevesList.innerHTML="";
   (ev.eleves||[]).forEach((el, idx)=>{
@@ -569,11 +576,12 @@ function renderEvals(){
     ev.noteFinale = n; ev.completed=false; save();
   };
 
-  // Indication de l’équipe utilisée pour le PDF
+  // Indication de l’équipe + N observations incluses
   const lab = document.getElementById("exportTeamLabel");
   if(lab){
     const t = getCurrentExportTeam();
-    lab.textContent = t.length ? `PDF: Observateurs = ${t.join(", ")}` : "";
+    const n = countObservationsForTeam(t);
+    lab.textContent = t.length ? `PDF: Observateurs = ${t.join(", ")} • ${n} observation(s)` : "";
   }
 }
 
@@ -659,121 +667,145 @@ function exportByObserversPDF(){
   }
   renderPDF({ mode:"byObservers", team });
 }
-function normalizeTeamForFile(a=[]){
-  return (a||[]).join("_").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9_]+/gi,"_");
+
+// Nom de fichier lisible: tirets, accents conservés, caractères interdits supprimés
+function buildFileNameFromTeam(team=[]){
+  const safe = (team||[])
+    .map(n => (n||"").trim().replace(/\s+/g,'-'))
+    .join('-')
+    .replace(/[<>:"/\\|?*]+/g,'')
+    .replace(/-{2,}/g,'-')
+    .replace(/^-|-$/g,'');
+  const d = new Date().toISOString().slice(0,10);
+  return `AcroJuge-${safe||"Observateurs"}-${d}.pdf`;
 }
 
+// PDF clair: par observation -> OBSERVATIONS puis ÉVALUATIONS
 function renderPDF({mode, team=[]}){
-  const footer = "AcroJuge - Equipe EPS Lycée Vauban - LUXEMBOURG - JB";
+  const footerText = "ScanProf/AcroJuge – Équipe EPS Lycée Vauban – LUXEMBOURG – JB";
   if(!(window.__HAS_LOCAL_JSPDF__ && window.jspdf)){ window.print(); return; }
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({unit:"pt",format:"a4"});
-  let y=60; const left=40, right=555, maxW=right-left;
-  const ensure=(space)=>{ if(y+space>780){ addFooter(); doc.addPage(); y=60; } };
-  const nl=(dy=16)=>{ y+=dy; if(y>780){ addFooter(); doc.addPage(); y=60; } };
-  const addFooter=()=>{ const p=doc.getCurrentPageInfo().pageNumber;
-    doc.setFontSize(9); doc.setTextColor(120);
-    doc.text(`${footer}  •  Page ${p}/${doc.getNumberOfPages()}  •  ${new Date().toLocaleDateString()}`, left, 820);
-    doc.setTextColor(0);
-  };
-  const levelText = (lv)=> ({fragile:"Fragile",moyen:"Moyen",bon:"Bon",tb:"Très bon"})[lv]||lv;
-  const DOT = { fragile:"🔴", moyen:"🟡", bon:"🟢", tb:"🟩" };
 
-  // Filtre: équipe exacte (clé normalisée)
+  // Sélection stricte par équipe (ordre indifférent)
   const key = teamKey(team);
   const selection = (app.evals || []).filter(e => teamKey(e.observerList || []) === key);
-
   if(!selection.length){
     alert("Aucune observation trouvée pour cette équipe d’observateurs.");
     return;
   }
 
-  const headerTitle = "Dossier d’observation — Observateurs: " + (team.join(", ") || "Observateurs");
-  const fileName    = `AcroJuge_${normalizeTeamForFile(team)}_${new Date().toISOString().slice(0,10)}.pdf`;
+  // Helpers mise en page
+  const doc = new jsPDF({unit:"pt",format:"a4"});
+  const M = { top:60, left:40, right:555, bottom:820, maxW: 555-40 };
+  let y = M.top;
 
-  // En-tête
-  doc.setFontSize(20); doc.text(headerTitle, left, y); nl(20);
-  doc.setFontSize(11);
-  doc.text(`Date d’export : ${new Date().toLocaleDateString()}`, left, y); nl();
+  const addFooter = () => {
+    const p = doc.getCurrentPageInfo().pageNumber;
+    doc.setFontSize(9); doc.setTextColor(120);
+    doc.text(`${footerText} • Page ${p}/${doc.getNumberOfPages()} • ${new Date().toLocaleDateString()}`, M.left, M.bottom);
+    doc.setTextColor(0);
+  };
+  const newPage = () => { addFooter(); doc.addPage(); y = M.top; };
+  const ensure = (space) => { if (y + space > M.bottom - 20) newPage(); };
+  const nl = (dy=16) => { y += dy; if (y > M.bottom - 20) newPage(); };
 
-  // Corps
-  selection.forEach((e, i)=>{
-    ensure(60);
-    doc.setFont(undefined,"bold");
-    const doneTxt = e.completed ? " — ✅ Enregistrée" : "";
-    doc.text(`${i+1}. Groupe observé: ${(e.groupeList||[]).join(", ") || "(à compléter)"}${doneTxt}`, left, y); nl();
-    doc.setFont(undefined,"normal");
-    const obsLine = (e.observerList||[]).join(", ");
-    if(obsLine) { doc.text(`Observateurs (fiche): ${obsLine}`, left, y); nl(6); }
+  const wrap = (txt, width)=> doc.splitTextToSize(txt, width);
 
-    // Pyramides
-    if((e.pyramides||[]).length){
-      doc.setFont(undefined,"bold"); doc.text("Pyramides de l'enchaînement", left, y); nl(10); doc.setFont(undefined,"normal");
-      e.pyramides.forEach((p, idx)=>{
+  const FMB = { fragile:"Fragile", moyen:"Moyen", bon:"Bon", tb:"Très bon" };
+  const DOTS = { fragile:"🔴", moyen:"🟡", bon:"🟢", tb:"🟩" };
+
+  // En-tête global
+  doc.setFontSize(20); doc.setFont(undefined, "bold");
+  doc.text(`Dossier d’observation`, M.left, y); nl(20);
+  doc.setFontSize(12); doc.setFont(undefined, "normal");
+  doc.text(`Observateurs : ${team.join(", ")}`, M.left, y); nl();
+  doc.text(`Date d’export : ${new Date().toLocaleDateString()}`, M.left, y); nl(10);
+  doc.setDrawColor(200); doc.line(M.left, y, M.right, y); doc.setDrawColor(0); nl(14);
+
+  // Corps : chaque observation -> 2 volets
+  selection.forEach((e, idx) => {
+    // En-tête observation
+    ensure(40);
+    doc.setFontSize(14); doc.setFont(undefined, "bold");
+    const doneTxt = e.completed ? " (enregistrée ✅)" : "";
+    doc.text(`${idx+1}. Groupe observé : ${(e.groupeList||[]).join(", ") || "(à compléter)"}${doneTxt}`, M.left, y); nl(18);
+    doc.setFont(undefined, "normal"); doc.setFontSize(11);
+
+    // === 1) OBSERVATIONS (pyramides) ===
+    doc.setFont(undefined, "bold"); doc.text("OBSERVATIONS", M.left, y); nl(12);
+    doc.setFont(undefined, "normal");
+    if ((e.pyramides||[]).length){
+      e.pyramides.forEach((p, iP) => {
         ensure(40);
         doc.setFont(undefined,"bold");
-        doc.text(`${idx+1}. ${LABEL[p.type]} — Tenue 3s: ${p.tenue.toUpperCase()}`, left, y); nl();
+        doc.text(`• Pyramide ${iP+1} — ${LABEL[p.type]} — Tenue 3s : ${String(p.tenue||"non").toUpperCase()}`, M.left, y); nl();
         doc.setFont(undefined,"normal");
-        const lines = Object.entries(p.securite).map(([k,v])=>`   ${DOT[v]} ${k} — ${levelText(v)}`);
-        lines.forEach(ln=>{
-          const wrapped = doc.splitTextToSize(ln, maxW);
-          wrapped.forEach(w=>{ ensure(18); doc.text(w, left, y); nl(14); });
+        Object.entries(p.securite||{}).forEach(([crit,lv])=>{
+          const line = `${DOTS[lv]||"•"} ${crit} — ${FMB[lv]||lv}`;
+          wrap(line, M.maxW).forEach(w=>{ ensure(16); doc.text(w, M.left+16, y); nl(14); });
         });
-        nl(2);
+        nl(6);
       });
     } else {
-      doc.text("(Aucune pyramide)", left, y); nl();
+      doc.text("(Aucune pyramide)", M.left, y); nl(14);
     }
 
-    // Ensemble
-    ensure(40);
-    doc.setFont(undefined,"bold"); doc.text("Évaluation d’ensemble", left, y); nl();
+    // Saut de page si besoin
+    ensure(100);
+
+    // === 2) ÉVALUATIONS ===
+    doc.setFont(undefined,"bold"); doc.text("ÉVALUATIONS", M.left, y); nl(12);
     doc.setFont(undefined,"normal");
-    ENSEMBLE_CRITS.forEach(c=>{
+
+    // Ensemble F/M/B/TB
+    doc.setFont(undefined,"bold"); doc.text("• Évaluation de l’ensemble", M.left, y); nl(12);
+    doc.setFont(undefined,"normal");
+    ENSEMBLE_CRITS.forEach((c)=>{
       const lv = (e.ensemble||{})[c] || "moyen";
-      ensure(18); doc.text(`• ${c}: ${DOT[lv]} ${levelText(lv)}`, left, y); nl();
+      ensure(16);
+      doc.text(`   ${c} : ${DOTS[lv]||"•"} ${FMB[lv]||lv}`, M.left, y); nl();
     });
-    nl(4);
+    nl(6);
 
-    // Note finale + commentaire
-    ensure(18);
-    const finalTxt = e.noteFinale==null ? "—" : String(Number(e.noteFinale).toFixed(1)).replace(".",",");
-    doc.text(`Note finale /20: ${finalTxt}`, left, y); nl();
-    if(e.commentaire){
-      const wrapped = doc.splitTextToSize(`Commentaire: ${e.commentaire}`, maxW);
-      wrapped.forEach(w=>{ ensure(18); doc.text(w, left, y); nl(14); });
-    }
-    nl(4);
-
-    // Individuel (3 colonnes)
-    if((e.eleves||[]).length){
+    // Individuel
+    if ((e.eleves||[]).length){
       ensure(24);
-      doc.setFont(undefined,"bold"); doc.text("Évaluation individuelle (notes /20)", left, y); nl();
+      doc.setFont(undefined,"bold"); doc.text("• Évaluation individuelle (notes /20)", M.left, y); nl(12);
       doc.setFont(undefined,"normal");
       const perRow = 3;
-      let xCols = [left, left + (maxW/3), left + 2*(maxW/3)];
-      (e.eleves||[]).forEach((el, idx2)=>{
-        const col = idx2 % perRow;
-        if(col===0 && idx2>0){ nl(16); ensure(18); }
+      const colW = M.maxW / perRow;
+      const cols = [M.left, M.left + colW, M.left + 2*colW];
+      (e.eleves||[]).forEach((el, i) => {
+        const col = i % perRow;
+        if(col===0 && i>0){ nl(16); ensure(16); }
         const n = el.note==null ? "—" : String(Number(el.note).toFixed(1)).replace(".",",");
-        doc.text(`${el.name}: ${n}/20`, xCols[col]+4, y);
+        doc.text(`${el.name} : ${n}/20`, cols[col]+4, y);
       });
       nl(18);
     }
 
+    // Note finale + commentaire
+    const nf = e.noteFinale==null ? "—" : String(Number(e.noteFinale).toFixed(1)).replace(".",",");
+    ensure(16); doc.text(`Note finale /20 : ${nf}`, M.left, y); nl();
+    if ((e.commentaire||"").trim()){
+      wrap(`Commentaire : ${e.commentaire}`, M.maxW).forEach(w=>{ ensure(16); doc.text(w, M.left, y); nl(14); });
+    }
+
     // Séparateur
-    ensure(12);
-    doc.setDrawColor(220); doc.line(left, y, right, y); doc.setDrawColor(0); nl(12);
+    ensure(14);
+    doc.setDrawColor(220); doc.line(M.left, y, M.right, y); doc.setDrawColor(0); nl(18);
   });
 
-  // Footers
+  // Footer paginé
   const total = doc.getNumberOfPages();
   for(let i=1;i<=total;i++){
-    doc.setPage(i); doc.setFontSize(9); doc.setTextColor(120);
-    doc.text(`AcroJuge - Equipe EPS Lycée Vauban - LUXEMBOURG - JB  •  Page ${i}/${total}  •  ${new Date().toLocaleDateString()}`, left, 820);
+    doc.setPage(i);
+    doc.setFontSize(9); doc.setTextColor(120);
+    doc.text(`${footerText} • Page ${i}/${total} • ${new Date().toLocaleDateString()}`, M.left, M.bottom);
     doc.setTextColor(0);
   }
-  doc.save(fileName);
+
+  doc.save(buildFileNameFromTeam(team));
 }
 </script>
 </body>
