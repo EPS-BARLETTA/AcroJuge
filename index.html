@@ -79,9 +79,27 @@
     }
     .print-card{border:1px solid var(--border);border-radius:14px;padding:12px;margin-bottom:12px;background:#fff}
     .avoid-break{break-inside:avoid;page-break-inside:avoid}
-    .group-start{break-before:page;page-break-before:always} /* pour l’impression */
+    .group-start{break-before:page;page-break-before:always}
     .dot{display:inline-block;width:10px;height:10px;border-radius:999px;margin-right:8px;vertical-align:baseline}
     .dot.red{background:#ef4444}.dot.amber{background:#f59e0b}.dot.green{background:#22c55e}.dot.teal{background:#10b981}
+
+    /* ——— COUVERTURE PDF (DOM offscreen, même style que l’app) ——— */
+    .cover-root{
+      width:794px; height:1123px; /* A4 @96dpi approx, seulement pour html2canvas */
+      display:flex; align-items:center; justify-content:center; flex-direction:column;
+      background:linear-gradient(135deg,#ffffff 0%, #f6f8fb 100%);
+      color:#0f172a; border:1px solid var(--border); border-radius:18px;
+      -webkit-print-color-adjust: exact; print-color-adjust: exact;
+      padding:48px; box-shadow:var(--shadow)
+    }
+    .cover-badge{
+      display:inline-block; padding:6px 12px; border-radius:999px; font-weight:800;
+      background:#eef2ff; color:#3730a3; border:1px solid #e0e7ff; letter-spacing:.3px; margin-bottom:16px
+    }
+    .cover-title{ font-size:36px; font-weight:900; text-align:center; line-height:1.2; margin:0 0 12px 0}
+    .cover-names{ font-size:20px; text-align:center; opacity:.9; margin:0 0 8px 0}
+    .cover-date{ font-size:16px; color:#6b7280; text-align:center }
+    .cover-mark{ position:absolute; bottom:22px; left:0; right:0; text-align:center; font-size:12px; color:#6b7280 }
 
     @page{ size:A4; margin:14mm 12mm; }
     @media print{
@@ -250,7 +268,6 @@
         <div class="nav" style="margin-top:14px">
           <button class="btn btn-gray" id="bilanBack">⬅️ Retour</button>
           <div class="row">
-            <!-- Un seul bouton d’export -->
             <button class="btn btn-green-dark" id="bilanExportPDF">📄 Exporter le PDF</button>
           </div>
         </div>
@@ -293,7 +310,7 @@
         <div class="title">3) Bilan PDF</div>
         <ul>
           <li>Cliquer <b>📑 Bilan</b> pour le récapitulatif.</li>
-          <li><b>📄 Exporter le PDF</b> : visuel fidèle, entête de groupe en haut de page, pas de coupures.</li>
+          <li><b>📄 Exporter le PDF</b> : page de garde centrée, entête de groupe en haut de page, pas de coupures, visuel fidèle.</li>
         </ul>
       </div>
     </div>
@@ -312,7 +329,7 @@
 
 <script>
 /* ===== PERSISTENCE ===== */
-const STORAGE_KEY = "acrojuge_state_ui_v19_single_export_button";
+const STORAGE_KEY = "acrojuge_state_ui_v20_cover_centered_footer";
 function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(app)); }
 function load(){ try{ const raw=localStorage.getItem(STORAGE_KEY); if(raw) Object.assign(app, JSON.parse(raw)); }catch{} }
 function hardReset(){
@@ -346,7 +363,6 @@ const DEFAULT_SECURITE = [
   "Descente sécurisée",
 ];
 const ENSEMBLE_CRITS = ["Composition","Entrée","Sortie","Originalité"];
-const DOTS = { fragile:"🔴", moyen:"🟡", bon:"🟢", tb:"🟩" };
 const FMB_TEXT = { fragile:"Fragile", moyen:"Moyen", bon:"Bon", tb:"Très bon" };
 
 /* ===== DOM ===== */
@@ -510,7 +526,6 @@ function renderSetup(){
   toChips($("obsChips"), app.observers, (i)=>{ app.observers.splice(i,1); renderSetup(); save(); });
   toChips($("grpChips"), app.group, (i)=>{ app.group.splice(i,1); renderSetup(); save(); });
   $("compoCount").textContent = app.evals.length;
-  // ne pas forcer 0 dans les inputs visibles
   ["p2","p3","p4","p5","libre"].forEach(k=>{
     const v = app.counts[k];
     const el = $("count-"+k);
@@ -727,7 +742,6 @@ function renderBilan(){
   }
 
   selection.forEach((e, idx)=>{
-    // Entête de groupe : en haut de page à l’impression
     const header = document.createElement("div");
     header.className = "print-section avoid-break" + (idx>0 ? " group-start" : "");
     header.dataset.block = "group-header";
@@ -804,7 +818,7 @@ function renderBilan(){
   });
 }
 
-/* ===== EXPORT PDF (UN SEUL BOUTON) ===== */
+/* ===== EXPORT PDF (COUVERTE + BLOC-BY-BLOC, VISUEL FIDÈLE) ===== */
 async function exportBilanPDF(){
   const ok = await depsReady.catch(()=>false);
   if(!ok){ alert("Dépendances PDF non chargées."); return; }
@@ -822,21 +836,24 @@ async function exportBilanPDF(){
   const margin = 40;
   let y = margin;
 
-  const orphanAfterHeaderMin = 240; // espace mini à garder après l’entête
+  const orphanAfterHeaderMin = 240; // espace mini après entête de groupe
 
-  function addFooter(p){
+  function centerFooterText(str){
     doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor(120);
-    doc.text(`AcroJuge – Équipe EPS Lycée Vauban – LUXEMBOURG – JB  •  Page ${p}/${doc.getNumberOfPages()}  •  ${new Date().toLocaleDateString()}`, margin, pageH - 16);
+    doc.text(str, pageW/2, pageH - 16, { align: "center", baseline: "alphabetic" });
     doc.setTextColor(0);
+  }
+  function addFooterForPage(p){
+    centerFooterText(`AcroJuge – Équipe EPS Lycée Vauban – LUXEMBOURG – JB  •  Page ${p}/${doc.getNumberOfPages()}  •  ${new Date().toLocaleDateString()}`);
   }
   function newPage(){
     const cur = doc.internal.getCurrentPageInfo().pageNumber;
-    addFooter(cur);
+    addFooterForPage(cur);
     doc.addPage(); y = margin;
   }
   function spaceLeft(){ return pageH - margin - 20 - y; }
 
-  async function renderAsImage(el, scale=2){
+  async function snapEl(el, scale=2){
     const canvas = await html2canvas(el, {
       backgroundColor: null,
       scale,
@@ -853,9 +870,8 @@ async function exportBilanPDF(){
 
   async function addBlock(el){
     const isHeader = el.dataset && el.dataset.block === "group-header";
-    const { imgData, imgW, imgH, ratio } = await renderAsImage(el, 2);
+    const { imgData, imgW, imgH, ratio } = await snapEl(el, 2);
 
-    // entêtes : toujours en haut d’une page (sauf tout début)
     if (isHeader && y !== margin) newPage();
     if (isHeader && spaceLeft() < orphanAfterHeaderMin) newPage();
 
@@ -876,16 +892,50 @@ async function exportBilanPDF(){
     y += imgH + 8;
   }
 
-  // reconstruire le bilan pour être sûr d’avoir la dernière version
+  // (0) Reconstruire le bilan
   renderBilan();
 
+  // (1) Construire une COUVERTURE offscreen avec les mêmes styles
+  const cover = document.createElement("div");
+  cover.className = "cover-root";
+  cover.style.position = "fixed";
+  cover.style.left = "-99999px";
+  cover.innerHTML = `
+    <span class="cover-badge">AcroJuge</span>
+    <h1 class="cover-title">Dossier d’observation de :</h1>
+    <div class="cover-names">${team.join(", ") || "Observateurs"}</div>
+    <div class="cover-date">${new Date().toLocaleDateString()}</div>
+    <div class="cover-mark">AcroJuge – Équipe EPS Lycée Vauban – LUXEMBOURG – JB</div>
+  `;
+  document.body.appendChild(cover);
+
+  // (2) Snap la couverture et l’insérer comme PAGE 1 centrée
+  const coverShot = await snapEl(cover, 2);
+  // Ajuste pour remplir la page en conservant le ratio
+  const maxW = pageW - margin*2;
+  const maxH = pageH - margin*2;
+  let w = coverShot.imgW, h = coverShot.imgH;
+  const scale = Math.min(maxW / w, maxH / h);
+  w = w * scale; h = h * scale;
+  const x = (pageW - w)/2, top = (pageH - h)/2;
+  doc.addImage(coverShot.imgData, "PNG", x, top, w, h, undefined, "FAST");
+  document.body.removeChild(cover);
+
+  // (3) Nouvelle page pour le contenu
+  newPage();
+
+  // (4) Header du “bilan” (petit bandeau en haut)
   await addBlock(document.querySelector("#page-bilan .print-header"));
+
+  // (5) Tous les blocs (entêtes de groupe + cartes)
   const blocks = Array.from(document.querySelectorAll("#bilanContent > *"));
-  for (const b of blocks) await addBlock(b);
+  for (const b of blocks){ await addBlock(b); }
 
+  // (6) Pieds de page centrés sur toutes les pages
   const total = doc.getNumberOfPages();
-  for(let p=1;p<=total;p++){ doc.setPage(p); addFooter(p); }
+  for(let p=1;p<=total;p++){ doc.setPage(p); addFooterForPage(p); }
 
+  // (7) Nom du fichier
   const safeTeam = team.join("-").replace(/[^\w-]+/g,"-").replace(/-+/g,"-");
   const date = new Date().toISOString().slice(0,10);
   doc.save(`AcroJuge-${safeTeam||"Observateurs"}-${date}.pdf`);
