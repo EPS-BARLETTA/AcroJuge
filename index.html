@@ -13,13 +13,9 @@
     }
     *{box-sizing:border-box}
     html,body{height:100%}
-    body{
-      margin:0;background:var(--bg);color:var(--text);
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif
-    }
+    body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif}
     .app{min-height:100dvh;display:flex;flex-direction:column}
-    .header{position:sticky;top:0;background:#fff;border-bottom:1px solid var(--border);
-      padding:10px 16px;display:flex;gap:8px;align-items:center;justify-content:flex-end;z-index:10;box-shadow:var(--shadow)}
+    .header{position:sticky;top:0;background:#fff;border-bottom:1px solid var(--border);padding:10px 16px;display:flex;gap:8px;align-items:center;justify-content:flex-end;z-index:10;box-shadow:var(--shadow)}
     .btn{border:0;border-radius:12px;padding:10px 16px;cursor:pointer;font-weight:700;letter-spacing:.2px;box-shadow:var(--shadow)}
     .btn-green{background:var(--green);color:#fff}
     .btn-green-dark{background:var(--green-dark);color:#fff}
@@ -68,14 +64,11 @@
     .note-item .who{font-weight:600}
     .note-item input{width:100px}
 
-    /* ——— PAGE IMPRIMABLE (BILAN) ——— */
+    /* ——— PAGE BILAN (IMPRIMABLE ET “SNAPSHOTTÉE” EN PDF) ——— */
     .print-page{
       background:#fff;border:1px solid var(--border);box-shadow:var(--shadow);
       padding:20px;border-radius:18px;
-      /* pour garder les couleurs et l’aspect en impression */
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
-      color-adjust: exact;
+      -webkit-print-color-adjust: exact; print-color-adjust: exact; color-adjust: exact;
     }
     .print-header{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:10px}
     .print-title{font-size:22px;font-weight:900;letter-spacing:.3px}
@@ -86,11 +79,10 @@
     }
     .print-card{border:1px solid var(--border);border-radius:14px;padding:12px;margin-bottom:12px;background:#fff}
     .avoid-break{break-inside:avoid;page-break-inside:avoid}
-
     .dot{display:inline-block;width:10px;height:10px;border-radius:999px;margin-right:8px;vertical-align:baseline}
     .dot.red{background:#ef4444}.dot.amber{background:#f59e0b}.dot.green{background:#22c55e}.dot.teal{background:#10b981}
 
-    /* ——— Impression : A4 plein pot, zéro coupure ——— */
+    /* Impression (secours uniquement) */
     @page{ size:A4; margin:14mm 12mm; }
     @media print{
       .header,.nav,.no-print,.modal{display:none!important}
@@ -103,6 +95,28 @@
       }
     }
   </style>
+
+  <!-- Dépendances pour export PDF fidèle au visuel -->
+  <script>
+    // Promesse de chargement de scripts (CDN)
+    function loadScript(src){
+      return new Promise((resolve, reject)=>{
+        const s=document.createElement('script'); s.src=src; s.defer=true;
+        s.onload=resolve; s.onerror=()=>reject(new Error("load fail: "+src));
+        document.head.appendChild(s);
+      });
+    }
+    // On charge html2canvas puis jsPDF en cdn
+    const depsReady = (async ()=>{
+      if(!("html2canvas" in window)){
+        await loadScript("https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js");
+      }
+      if(!(window.jspdf && window.jspdf.jsPDF)){
+        await loadScript("https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js");
+      }
+      return true;
+    })();
+  </script>
 </head>
 <body>
 <div class="app">
@@ -215,15 +229,15 @@
         <div class="row" style="align-items:center">
           <button class="btn btn-blue" id="btnShowList">📂 Enchaînements</button>
           <button class="btn btn-amber" id="btnNewObservation">➕ Nouvelle observation</button>
-          <button class="btn btn-green" id="btnGoBilan">📑 Bilan (imprimable)</button>
+          <button class="btn btn-green" id="btnGoBilan">📑 Bilan (PDF Pro)</button>
           <span id="exportTeamLabel" class="muted"></span>
         </div>
       </div>
     </section>
 
-    <!-- PAGE 5 : BILAN (IMPRIMABLE) -->
+    <!-- PAGE 5 : BILAN -->
     <section id="page-bilan" class="section hidden">
-      <div class="print-page avoid-break">
+      <div class="print-page">
         <div class="print-header">
           <div>
             <div class="print-title">Dossier d’observation</div>
@@ -234,20 +248,20 @@
 
         <div id="bilanContent"></div>
 
-        <div class="nav no-print" style="margin-top:14px">
+        <div class="nav" style="margin-top:14px">
           <button class="btn btn-gray" id="bilanBack">⬅️ Retour</button>
           <div class="row">
-            <button class="btn btn-green-dark" id="bilanPrint">🖨️ Imprimer / Exporter PDF</button>
+            <button class="btn btn-green-dark" id="bilanExportPDF">📄 Exporter PDF (pro)</button>
+            <button class="btn btn-blue" id="bilanPrint">🖨️ Imprimer (secours)</button>
           </div>
         </div>
       </div>
 
-      <!-- Pied de page (visible à l’impression) -->
       <div class="print-footer">AcroJuge – Équipe EPS Lycée Vauban – LUXEMBOURG – JB</div>
     </section>
   </main>
 
-  <footer class="footer no-print">
+  <footer class="footer">
     AcroJuge – Équipe EPS Lycée Vauban – LUXEMBOURG – JB
   </footer>
 </div>
@@ -273,14 +287,14 @@
         <div class="title">2) Observation</div>
         <ul>
           <li>Pour chaque pyramide : <b>Tenue 3s</b> (OUI/NON) et <b>Sécurité</b> (🔴/🟡/🟢/🟩) par critère.</li>
-          <li><b>Enregistrement automatique</b> (pas besoin de bouton).</li>
+          <li><b>Enregistrement automatique</b> (pas de bouton).</li>
         </ul>
       </div>
       <div class="card">
-        <div class="title">3) Bilan imprimable</div>
+        <div class="title">3) Bilan PDF pro</div>
         <ul>
-          <li>Cliquer <b>📑 Bilan</b> → aperçu propre par groupe observé.</li>
-          <li><b>🖨️ Imprimer / Exporter PDF</b> : conserve les couleurs et la mise en page.</li>
+          <li>Cliquer <b>📑 Bilan</b> pour le récapitulatif.</li>
+          <li><b>📄 Exporter PDF (pro)</b> : sans en-têtes navigateur, couleurs fidèles, blocs non coupés.</li>
         </ul>
       </div>
     </div>
@@ -299,7 +313,7 @@
 
 <script>
 /* ===== PERSISTENCE ===== */
-const STORAGE_KEY = "acrojuge_state_ui_v16_printonly_prolook";
+const STORAGE_KEY = "acrojuge_state_ui_v17_canvas_pro_pdf";
 function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(app)); }
 function load(){ try{ const raw=localStorage.getItem(STORAGE_KEY); if(raw) Object.assign(app, JSON.parse(raw)); }catch{} }
 function hardReset(){
@@ -340,7 +354,7 @@ const FMB_TEXT = { fragile:"Fragile", moyen:"Moyen", bon:"Bon", tb:"Très bon" }
 const $ = (id)=> document.getElementById(id);
 document.addEventListener("DOMContentLoaded", async ()=>{
   if (navigator.storage && navigator.storage.persist) {
-    try { await navigator.storage.persist(); } catch(e) { console.warn("persist() refusé :", e); }
+    try { await navigator.storage.persist(); } catch(e) {}
   }
 
   // Navigation
@@ -352,6 +366,7 @@ document.addEventListener("DOMContentLoaded", async ()=>{
   $("btnGoBilan").onclick  = ()=> { renderBilan(); show("bilan"); };
   $("bilanBack").onclick   = ()=> show("evals");
   $("bilanPrint").onclick  = ()=> window.print();
+  $("bilanExportPDF").onclick = exportBilanPDF;
 
   // Modals
   $("btnHelp").onclick     = ()=> toggleModal("modalHelp", true);
@@ -506,7 +521,6 @@ function renderObserve(){
   const ev = app.evals.find(e=>e.id===app.selectedId);
   if(!ev){ observeContent.innerHTML = `<div class="muted">Démarre une observation pour créer le premier enchaînement.</div>`; return; }
 
-  // Groupe éditable
   const grpCard=document.createElement("div");
   grpCard.className="card";
   grpCard.innerHTML = `
@@ -524,7 +538,6 @@ function renderObserve(){
   grpEdit.addEventListener("keydown",(e)=>{ if(["Enter",",",";"].includes(e.key)){ e.preventDefault(); const names=splitNames(grpEdit.value); ev.groupeList=[...(ev.groupeList||[]), ...names.filter(n=>!(ev.groupeList||[]).includes(n))]; ev.eleves=syncEleves(ev.eleves, ev.groupeList); grpEdit.value=""; touch(ev); renderObserve(); }});
   grpEdit.addEventListener("paste",(e)=>{ const t=e.clipboardData?.getData("text")||""; if(/[,\n;]/.test(t)){ e.preventDefault(); const names=splitNames(t); ev.groupeList=[...(ev.groupeList||[]), ...names.filter(n=>!(ev.groupeList||[]).includes(n))]; ev.eleves=syncEleves(ev.eleves, ev.groupeList); touch(ev); renderObserve(); }});
 
-  // Pyramides
   const wrap=document.createElement("div"); wrap.className="grid grid-2";
   ev.pyramides.forEach((p, idx)=>{
     const el=document.createElement("div"); el.className=`pyr ${COLORS[p.type]} avoid-break`;
@@ -553,11 +566,9 @@ function renderObserve(){
           `).join("")}
         </div>
       </div>`;
-    // Tenue
     el.querySelectorAll("[data-tn]").forEach(btn=>{
       btn.onclick = ()=>{ p.tenue = btn.getAttribute("data-tn"); touch(ev); renderObserve(); };
     });
-    // Sécurité
     el.querySelectorAll(".fmblist").forEach((rowEl,i)=>{
       rowEl.querySelectorAll("[data-fmb]").forEach(b=>{
         b.onclick = ()=>{
@@ -613,8 +624,7 @@ function renderEvals(){
   });
 
   const commentaire=$("commentaire"), noteFinale=$("noteFinale");
-  commentaire.value = ev.commentaire??"";
-  commentaire.oninput = (e)=>{ ev.commentaire=e.target.value; touch(ev); };
+  commentaire.value = ev.commentaire??""; commentaire.oninput = (e)=>{ ev.commentaire=e.target.value; touch(ev); };
   noteFinale.value = ev.noteFinale ?? "";
   noteFinale.oninput = (e)=>{
     const v=e.target.value;
@@ -626,7 +636,7 @@ function renderEvals(){
   if(lab){
     const t = getCurrentExportTeam();
     const n = countObservationsForTeam(t);
-    lab.textContent = t.length ? `Impression : Observateurs = ${t.join(", ")} • ${n} observation(s)` : "";
+    lab.textContent = t.length ? `Bilan : Observateurs = ${t.join(", ")} • ${n} observation(s)` : "";
   }
 }
 
@@ -694,7 +704,7 @@ function newObservationFlow(){
   show("setup");
 }
 
-/* ===== BILAN (IMPRIMABLE) ===== */
+/* ===== BILAN (PAGE + EXPORT PDF) ===== */
 function getTeamSelection(){
   const team = getCurrentExportTeam();
   const k = teamKey(team);
@@ -704,60 +714,46 @@ function getTeamSelection(){
 
 function renderBilan(){
   const { team, selection } = getTeamSelection();
-  const sub = $("bilanSubtitle");
-  sub.textContent = team.length ? `Observateurs : ${team.join(", ")} • ${selection.length} observation(s)` : "Aucune équipe détectée";
-
-  const meta = $("bilanMeta"); meta.textContent = `Date : ${new Date().toLocaleDateString()}`;
+  $("bilanSubtitle").textContent = team.length ? `Observateurs : ${team.join(", ")} • ${selection.length} observation(s)` : "Aucune équipe détectée";
+  $("bilanMeta").textContent = `Date : ${new Date().toLocaleDateString()}`;
 
   const cont = $("bilanContent"); cont.innerHTML = "";
-
   if(!selection.length){
     cont.innerHTML = `<div class="print-card muted">Aucune observation trouvée pour cette équipe.</div>`;
     return;
   }
 
   selection.forEach((e, idx)=>{
-    const cnt = { p2:0,p3:0,p4:0,p5:0,libre:0 };
-    (e.pyramides||[]).forEach(p=> cnt[p.type]++);
-
-    // Titre groupe
     const header = document.createElement("div");
     header.className = "print-section avoid-break";
     header.textContent = `#${idx+1} — Groupe observé : ${(e.groupeList||[]).join(", ")||"(à compléter)"} ${e.completed? '✅':''}`;
     cont.appendChild(header);
 
-    // Observations
-    const obsCard = document.createElement("div");
-    obsCard.className = "print-card avoid-break";
-    obsCard.innerHTML = `<div class="title">OBSERVATIONS (pyramides)</div>`;
-    if((e.pyramides||[]).length){
-      (e.pyramides||[]).forEach((p,iP)=>{
-        const block = document.createElement("div");
-        block.className = `pyr ${COLORS[p.type]} avoid-break`;
-        block.style.marginTop = "8px";
-        block.innerHTML = `
-          <div class="bar"><div><b>Pyramide ${iP+1}</b> — ${LABEL[p.type]}</div>
-          <div class="muted">${NEED[p.type]? NEED[p.type]+" élèves":"libre"}</div></div>
-          <div class="muted" style="margin-top:6px">Tenue 3s : <b>${String(p.tenue||"non").toUpperCase()}</b></div>
-          <ul style="margin:8px 0 0 14px">
-            ${Object.entries(p.securite||{}).map(([crit,lv])=>{
-              const colorClass = lv==="fragile"?"red":lv==="moyen"?"amber":lv==="bon"?"green":"teal";
-              return `<li class="avoid-break"><span class="dot ${colorClass}"></span>${crit} — <i>${FMB_TEXT[lv]||lv}</i></li>`;
-            }).join("")}
-          </ul>
-        `;
-        obsCard.appendChild(block);
-      });
-    } else {
-      obsCard.innerHTML += `<div class="muted">(Aucune pyramide)</div>`;
-    }
-    cont.appendChild(obsCard);
+    const obs = document.createElement("div");
+    obs.className = "print-card avoid-break";
+    obs.innerHTML = `<div class="title">OBSERVATIONS (pyramides)</div>`;
+    (e.pyramides||[]).forEach((p,iP)=>{
+      const block = document.createElement("div");
+      block.className = `pyr ${COLORS[p.type]} avoid-break`;
+      block.style.marginTop = "8px";
+      block.innerHTML = `
+        <div class="bar"><div><b>Pyramide ${iP+1}</b> — ${LABEL[p.type]}</div>
+        <div class="muted">${NEED[p.type]? NEED[p.type]+" élèves":"libre"}</div></div>
+        <div class="muted" style="margin-top:6px">Tenue 3s : <b>${String(p.tenue||"non").toUpperCase()}</b></div>
+        <ul style="margin:8px 0 0 14px">
+          ${Object.entries(p.securite||{}).map(([crit,lv])=>{
+            const colorClass = lv==="fragile"?"red":lv==="moyen"?"amber":lv==="bon"?"green":"teal";
+            return `<li class="avoid-break"><span class="dot ${colorClass}"></span>${crit} — <i>${FMB_TEXT[lv]||lv}</i></li>`;
+          }).join("")}
+        </ul>
+      `;
+      obs.appendChild(block);
+    });
+    cont.appendChild(obs);
 
-    // Evaluations
-    const evaCard = document.createElement("div");
-    evaCard.className = "print-card avoid-break";
-    evaCard.innerHTML = `<div class="title">ÉVALUATIONS</div>`;
-    // Ensemble
+    const eva = document.createElement("div");
+    eva.className = "print-card avoid-break";
+    eva.innerHTML = `<div class="title">ÉVALUATIONS</div><div><b>Ensemble :</b></div>`;
     const ulEns = document.createElement("ul");
     ulEns.style.margin = "6px 0 10px 16px";
     ENSEMBLE_CRITS.forEach(c=>{
@@ -768,10 +764,8 @@ function renderBilan(){
       li.innerHTML = `<span class="dot ${colorClass}"></span>${c} : <i>${FMB_TEXT[lv]||lv}</i>`;
       ulEns.appendChild(li);
     });
-    evaCard.appendChild(document.createTextNode("Ensemble :"));
-    evaCard.appendChild(ulEns);
+    eva.appendChild(ulEns);
 
-    // Individuelle
     if ((e.eleves||[]).length){
       const wrap = document.createElement("div");
       wrap.innerHTML = `<div><b>Individuelle (/20) :</b></div>`;
@@ -785,28 +779,109 @@ function renderBilan(){
         ulInd.appendChild(li);
       });
       wrap.appendChild(ulInd);
-      evaCard.appendChild(wrap);
+      eva.appendChild(wrap);
     }
 
     const nf = e.noteFinale==null ? "—" : String(Number(e.noteFinale).toFixed(1)).replace(".",",");
     const nfDiv = document.createElement("div");
     nfDiv.style.marginTop = "8px";
     nfDiv.innerHTML = `<b>Note finale /20 :</b> ${nf}`;
-    evaCard.appendChild(nfDiv);
+    eva.appendChild(nfDiv);
 
     if ((e.commentaire||"").trim()){
       const comDiv = document.createElement("div");
       comDiv.style.marginTop = "6px";
       comDiv.innerHTML = `<b>Commentaire :</b> ${e.commentaire}`;
-      evaCard.appendChild(comDiv);
+      eva.appendChild(comDiv);
     }
 
-    cont.appendChild(evaCard);
+    cont.appendChild(eva);
   });
 }
 
-/* ===== UTIL ===== */
-function buildTeamsIndex(){ /* déjà au-dessus */ return new Map(); } // placeholder non utilisé ici
+/* ===== EXPORT PDF PRO (html2canvas + jsPDF) ===== */
+async function exportBilanPDF(){
+  const ok = await depsReady.catch(()=>false);
+  if(!ok){ alert("Impossible de charger les dépendances PDF."); return; }
+
+  const { team } = getTeamSelection();
+  if(!team.length){ alert("Aucune équipe d’observateurs détectée."); return; }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: "pt", format: "a4" }); // 595 x 842 pt
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const margin = 40; // marges internes PDF
+  let y = margin;
+
+  // Pied de page pro (ajouté à la fin sur chaque page)
+  function addFooter(p){
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor(120);
+    doc.text(`AcroJuge – Équipe EPS Lycée Vauban – LUXEMBOURG – JB  •  Page ${p}/${doc.getNumberOfPages()}  •  ${new Date().toLocaleDateString()}`, margin, pageH - 16);
+    doc.setTextColor(0);
+  }
+  function newPage(){ addFooter(doc.internal.getCurrentPageInfo().pageNumber); doc.addPage(); y = margin; }
+  function spaceLeft(){ return pageH - margin - 20 - y; }
+
+  // Prend un élément DOM, le snapshotte en canvas (2x), et l'insère dans le PDF en respectant la largeur
+  async function snapAndAdd(el){
+    const rect = el.getBoundingClientRect();
+    // Canvas 2x pour netteté
+    const scale = 2;
+    const canvas = await html2canvas(el, {
+      backgroundColor: null,
+      scale,
+      useCORS: true,
+      // Scroll dans le viewport pour iPad
+      windowWidth: document.documentElement.scrollWidth,
+      windowHeight: document.documentElement.scrollHeight
+    });
+    const imgData = canvas.toDataURL("image/png");
+    const imgW = pageW - margin*2;
+    const ratio = canvas.height / canvas.width;
+    const imgH = imgW * ratio;
+
+    // Saut de page si ça ne tient pas
+    if (imgH > spaceLeft()){
+      if (imgH > (pageH - margin*2)){ // trop grand pour une page → on réduit un peu
+        const fitH = pageH - margin*2;
+        const fitW = fitH / ratio;
+        if (fitH > spaceLeft()) newPage();
+        doc.addImage(imgData, "PNG", margin, y, fitW, fitH, undefined, "FAST");
+        y += fitH + 8;
+      } else {
+        newPage();
+        doc.addImage(imgData, "PNG", margin, y, imgW, imgH, undefined, "FAST");
+        y += imgH + 8;
+      }
+    } else {
+      doc.addImage(imgData, "PNG", margin, y, imgW, imgH, undefined, "FAST");
+      y += imgH + 8;
+    }
+  }
+
+  // En-tête du document
+  const header = document.querySelector("#page-bilan .print-header");
+  const blocks = Array.from(document.querySelectorAll("#bilanContent > *")); // chaque section/ carte est un bloc
+  const footer = document.querySelector(".print-footer"); // pas snapshotté (on a un footer PDF)
+
+  // Snap header
+  await snapAndAdd(header);
+
+  // Snap chaque bloc (évite toute coupure)
+  for (const b of blocks){
+    await snapAndAdd(b);
+  }
+
+  // Footer sur toutes les pages
+  const total = doc.getNumberOfPages();
+  for(let p=1;p<=total;p++){ doc.setPage(p); addFooter(p); }
+
+  // Nom de fichier : Observateurs-YYYY-MM-DD
+  const safeTeam = team.join("-").replace(/[^\w-]+/g,"-").replace(/-+/g,"-");
+  const date = new Date().toISOString().slice(0,10);
+  doc.save(`AcroJuge-${safeTeam||"Observateurs"}-${date}.pdf`);
+}
 </script>
 </body>
 </html>
